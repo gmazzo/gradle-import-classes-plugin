@@ -1,9 +1,9 @@
 package demo
 
-import io.github.gmazzo.importclasses.demo.imported.FastIgnoreRule
+import io.github.gmazzo.importclasses.demo.imported.StringUtils;
 
 class Bar {
 
-    def rule = new FastIgnoreRule("**")
+    def hello = StringUtils.capitalize("hello, world!")
 
 }

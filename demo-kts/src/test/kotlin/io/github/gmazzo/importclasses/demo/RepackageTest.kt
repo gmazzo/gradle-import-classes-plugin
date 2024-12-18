@@ -9,8 +9,8 @@ class RepackageTest {
     @ParameterizedTest
     @CsvSource(
         "org.eclipse.jgit.api.Git, false",
-        "org.eclipse.jgit.ignore.FastIgnoreRule, false",
-        "io.github.gmazzo.importclasses.demo.imported.FastIgnoreRule, true",
+        "org.apache.commons.lang3.StringUtils, false",
+        "io.github.gmazzo.importclasses.demo.imported.StringUtils, true",
     )
     fun `classes should be shrink and repackaged`(className: String, expectedFound: Boolean) {
         val exists = runCatching { Class.forName(className) }.isSuccess

@@ -2,7 +2,6 @@ package io.github.gmazzo.importclasses
 
 import groovy.lang.Closure
 import groovy.lang.MissingMethodException
-import io.github.gmazzo.importclasses.ImportClassesExtension.Spec
 import io.github.gmazzo.importclasses.ImportClassesPlugin.Companion.EXTENSION_NAME
 import org.gradle.api.Action
 import org.gradle.api.Project
@@ -30,7 +29,7 @@ internal abstract class ImportClassesExtensionImpl @Inject constructor(
 ) : ImportClassesExtension {
 
     @OptIn(ExperimentalStdlibApi::class)
-    override fun invoke(dependency: Any, vararg moreDependencies: Any, configure: Action<Spec>): Unit = with(project) {
+    override fun invoke(dependency: Any, vararg moreDependencies: Any, configure: Action<ImportClassesSpec>): Unit = with(project) {
 
         val deps = (sequenceOf(dependency) + moreDependencies).map {
             when (it) {
@@ -59,7 +58,7 @@ internal abstract class ImportClassesExtensionImpl @Inject constructor(
             dependencies.addAll(deps)
         }
 
-        val spec = objects.newInstance<SpecImpl>().apply {
+        val spec = objects.newInstance<ImportClassesSpecImpl>().apply {
             keepsAndRenames.finalizeValueOnRead()
             repackageTo.finalizeValueOnRead()
             filters.finalizeValueOnRead()
@@ -104,38 +103,6 @@ internal abstract class ImportClassesExtensionImpl @Inject constructor(
             moreDependencies = args.drop(1).dropLast(1).toTypedArray(),
             configure = ConfigureUtil.configureUsing(configure)
         )
-    }
-
-    internal abstract class SpecImpl : Spec {
-
-        override fun keep(className: String) =
-            keep(className, null)
-
-        override fun keep(className: String, renameTo: String?) {
-            if (renameTo != null) {
-                keepsAndRenames.put(className, renameTo)
-
-            } else {
-                keepsAndRenames.put(
-                    className, repackageTo
-                        .map { repackage -> "${repackage}.${className.substring(className.lastIndexOf('.') + 1)}" }
-                        .orElse("")
-                )
-            }
-        }
-
-        override fun include(vararg pattern: String) {
-            filters.addAll(*pattern)
-        }
-
-        override fun exclude(vararg pattern: String) {
-            filters.addAll(pattern.map { "!$it" })
-        }
-
-        override fun option(vararg option: String) {
-            extraOptions.addAll(*option)
-        }
-
     }
 
 }
