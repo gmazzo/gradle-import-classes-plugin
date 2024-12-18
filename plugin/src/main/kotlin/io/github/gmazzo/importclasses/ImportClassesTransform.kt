@@ -19,9 +19,7 @@ import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
 import proguard.Configuration
 import proguard.ConfigurationConstants.ADAPT_RESOURCE_FILE_NAMES_OPTION
-import proguard.ConfigurationConstants.ALLOW_OBFUSCATION_SUBOPTION
 import proguard.ConfigurationConstants.APPLY_MAPPING_OPTION
-import proguard.ConfigurationConstants.ARGUMENT_SEPARATOR_KEYWORD
 import proguard.ConfigurationConstants.CLASS_KEYWORD
 import proguard.ConfigurationConstants.DONT_NOTE_OPTION
 import proguard.ConfigurationConstants.DONT_OPTIMIZE_OPTION
@@ -93,8 +91,6 @@ abstract class ImportClassesTransform : TransformAction<ImportClassesTransform.P
                 }
                 keepsAndRenames.get().keys.forEach {
                     add(KEEP_OPTION)
-                    add(ARGUMENT_SEPARATOR_KEYWORD)
-                    add(ALLOW_OBFUSCATION_SUBOPTION)
                     add(CLASS_KEYWORD)
                     add(it)
                     add("{ *; }")
