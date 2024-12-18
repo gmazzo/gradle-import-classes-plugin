@@ -18,6 +18,8 @@ import org.gradle.api.tasks.Optional
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
 import proguard.Configuration
+import proguard.ConfigurationConstants.ADAPT_CLASS_STRINGS_OPTION
+import proguard.ConfigurationConstants.ADAPT_RESOURCE_FILE_CONTENTS_OPTION
 import proguard.ConfigurationConstants.ADAPT_RESOURCE_FILE_NAMES_OPTION
 import proguard.ConfigurationConstants.APPLY_MAPPING_OPTION
 import proguard.ConfigurationConstants.CLASS_KEYWORD
@@ -28,6 +30,7 @@ import proguard.ConfigurationConstants.DONT_WARN_OPTION
 import proguard.ConfigurationConstants.FORCE_PROCESSING_OPTION
 import proguard.ConfigurationConstants.INJARS_OPTION
 import proguard.ConfigurationConstants.KEEP_OPTION
+import proguard.ConfigurationConstants.LIBRARYJARS_OPTION
 import proguard.ConfigurationConstants.OUTJARS_OPTION
 import proguard.ConfigurationConstants.REPACKAGE_CLASSES_OPTION
 import proguard.ConfigurationParser
@@ -73,7 +76,7 @@ abstract class ImportClassesTransform : TransformAction<ImportClassesTransform.P
             postfix = ")",
         ) ?: ""
 
-        val outputJar = File(tempDir, "extracted.jar")
+        val proguardJar = File(tempDir, "extracted.jar")
 
         try {
             val args = buildList {
@@ -85,7 +88,9 @@ abstract class ImportClassesTransform : TransformAction<ImportClassesTransform.P
                 repackageName.orNull?.let {
                     add(REPACKAGE_CLASSES_OPTION)
                     add(it)
+                    add(ADAPT_CLASS_STRINGS_OPTION)
                     add(ADAPT_RESOURCE_FILE_NAMES_OPTION)
+                    add(ADAPT_RESOURCE_FILE_CONTENTS_OPTION)
                     add(APPLY_MAPPING_OPTION)
                     add(mappingFile!!.absolutePath)
                 }
@@ -93,24 +98,25 @@ abstract class ImportClassesTransform : TransformAction<ImportClassesTransform.P
                     add(KEEP_OPTION)
                     add(CLASS_KEYWORD)
                     add(it)
-                    add("{ *; }")
+                    add("{ public *; }")
                 }
                 add(INJARS_OPTION)
                 add(inputJar.absolutePath)
                 inputArtifactDependencies.forEach {
-                    add(INJARS_OPTION)
+                    add(if (includeTransitiveDependencies.get()) INJARS_OPTION else LIBRARYJARS_OPTION)
                     add(it.absolutePath)
                 }
                 add(OUTJARS_OPTION)
-                add("$outputJar$filesFilter")
+                add("$proguardJar$filesFilter")
+                addAll(extraOptions.get())
             }
 
             val config = Configuration()
             ConfigurationParser(args.toTypedArray(), null).parse(config)
             ProGuard(config).execute()
 
-            if (outputJar.exists()) {
-                outputJar.copyTo(outputs.file(inputJar.nameWithoutExtension + "-extracted.jar"))
+            if (proguardJar.exists()) {
+                proguardJar.copyTo(outputs.file(inputJar.nameWithoutExtension + "-extracted.jar"))
             }
 
         } finally {
@@ -129,6 +135,12 @@ abstract class ImportClassesTransform : TransformAction<ImportClassesTransform.P
 
         @get:Input
         val filters: ListProperty<String>
+
+        @get:Input
+        val extraOptions: ListProperty<String>
+
+        @get:Input
+        val includeTransitiveDependencies: Property<Boolean>
 
     }
 

@@ -20,6 +20,7 @@ sourceSets.main {
 dependencies {
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.params)
+    testRuntimeOnly(libs.demo.slf4j)
 }
 
 testing.suites.withType<JvmTestSuite> {

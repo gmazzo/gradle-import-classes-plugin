@@ -63,6 +63,8 @@ internal abstract class ImportClassesExtensionImpl @Inject constructor(
             keepsAndRenames.finalizeValueOnRead()
             repackageTo.finalizeValueOnRead()
             filters.finalizeValueOnRead()
+            extraOptions.finalizeValueOnRead()
+            includeTransitiveDependencies.convention(false).finalizeValueOnRead()
 
             configure.execute(this)
 
@@ -78,9 +80,12 @@ internal abstract class ImportClassesExtensionImpl @Inject constructor(
                 parameters.keepsAndRenames.value(spec.keepsAndRenames)
                 parameters.repackageName.value(spec.repackageTo)
                 parameters.filters.value(spec.filters)
+                parameters.extraOptions.value(spec.extraOptions)
+                parameters.includeTransitiveDependencies.value(spec.includeTransitiveDependencies)
             }
 
-            sourceSet.implementationConfigurationName(files)
+            sourceSet.compileOnlyConfigurationName(files)
+            sourceSet.runtimeOnlyConfigurationName(files)
         }
         (sourceSet.output.classesDirs as? ConfigurableFileCollection)?.from(provider { files.map(::zipTree) })
     }
@@ -111,9 +116,11 @@ internal abstract class ImportClassesExtensionImpl @Inject constructor(
                 keepsAndRenames.put(className, renameTo)
 
             } else {
-                keepsAndRenames.put(className, repackageTo
-                    .map { repackage -> "${repackage}.${className.substring(className.lastIndexOf('.') + 1)}" }
-                    .orElse(""))
+                keepsAndRenames.put(
+                    className, repackageTo
+                        .map { repackage -> "${repackage}.${className.substring(className.lastIndexOf('.') + 1)}" }
+                        .orElse("")
+                )
             }
         }
 
@@ -123,6 +130,10 @@ internal abstract class ImportClassesExtensionImpl @Inject constructor(
 
         override fun exclude(vararg pattern: String) {
             filters.addAll(pattern.map { "!$it" })
+        }
+
+        override fun option(vararg option: String) {
+            extraOptions.addAll(*option)
         }
 
     }

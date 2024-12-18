@@ -1,6 +1,7 @@
 package io.github.gmazzo.importclasses
 
 import org.gradle.api.Action
+import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.MapProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.provider.SetProperty
@@ -24,6 +25,12 @@ interface ImportClassesExtension {
         fun include(vararg pattern: String)
 
         fun exclude(vararg pattern: String)
+
+        val extraOptions: ListProperty<String>
+
+        fun option(vararg option: String)
+
+        val includeTransitiveDependencies: Property<Boolean>
 
     }
 
