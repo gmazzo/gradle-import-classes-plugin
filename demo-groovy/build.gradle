@@ -1,5 +1,7 @@
+import org.gradle.api.plugins.jvm.JvmTestSuite
+
 plugins {
-    alias(libs.plugins.kotlin.jvm)
+    id("groovy")
     id("io.github.gmazzo.importclasses")
 }
 
@@ -10,8 +12,18 @@ sourceSets.main {
         repackageTo = "io.github.gmazzo.importclasses.demo.imported"
         keep("org.eclipse.jgit.ignore.FastIgnoreRule")
 
-        exclude("META-INF/**module-info.class")
+        exclude("META-INF/**/module-info.class")
         include("**.class")
         exclude("**.*")
     }
+}
+
+dependencies {
+    implementation(libs.demo.groovy)
+    testImplementation(platform(libs.junit.bom))
+    testImplementation(libs.junit.params)
+}
+
+testing.suites.withType(JvmTestSuite) {
+    useJUnitJupiter()
 }

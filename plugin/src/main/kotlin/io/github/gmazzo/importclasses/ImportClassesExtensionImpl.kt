@@ -81,9 +81,9 @@ internal abstract class ImportClassesExtensionImpl @Inject constructor(
                 parameters.filters.value(spec.filters)
             }
 
-            sourceSet.compileOnlyConfigurationName(files)
+            sourceSet.implementationConfigurationName(files)
         }
-        (sourceSet.output.classesDirs as? ConfigurableFileCollection)?.from(files)
+        (sourceSet.output.classesDirs as? ConfigurableFileCollection)?.from(provider { files.map(::zipTree) })
     }
 
     /**

@@ -3,10 +3,11 @@ java = "17"
 kotlin = "2.1.0"
 
 [libraries]
-android-r8 = { module = "com.android.tools:r8", version = "8.5.35" }
+demo-groovy = { module = "org.codehaus.groovy:groovy", version = "3.0.9" }
 demo-jgit = { module = "org.eclipse.jgit:org.eclipse.jgit", version = "6.10.0.202406032230-r" }
 junit-bom = { module = "org.junit:junit-bom", version = "5.11.3" }
 junit-params = { module = "org.junit.jupiter:junit-jupiter-params" }
+proguard = { module = "com.guardsquare:proguard-base", version = "7.1.0" }
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }

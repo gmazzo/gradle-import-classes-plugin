@@ -22,19 +22,6 @@ dependencies {
     testImplementation(libs.junit.params)
 }
 
-publishing {
-    publications {
-        create<MavenPublication>("mavenJava") {
-            from(components["java"])
-        }
-    }
-}
-
 testing.suites.withType<JvmTestSuite> {
     useJUnitJupiter()
-}
-
-tasks.register<Sync>("aaa") {
-    from(zipTree(tasks.jar.map { it.archiveFile }))
-    into(layout.buildDirectory.dir("aaa"))
 }

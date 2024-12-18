@@ -1,6 +1,6 @@
 package io.github.gmazzo.importclasses
 
-import com.android.tools.r8.R8
+import proguard.ConfigurationConstants.*
 import org.gradle.api.artifacts.transform.CacheableTransform
 import org.gradle.api.artifacts.transform.InputArtifact
 import org.gradle.api.artifacts.transform.InputArtifactDependencies
@@ -18,7 +18,11 @@ import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.Optional
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
+import proguard.Configuration
+import proguard.ConfigurationParser
+import proguard.ProGuard
 import java.io.File
+import java.util.Properties
 
 @CacheableTransform
 abstract class ImportClassesTransform : TransformAction<ImportClassesTransform.Params> {
@@ -33,6 +37,7 @@ abstract class ImportClassesTransform : TransformAction<ImportClassesTransform.P
 
     override fun transform(outputs: TransformOutputs): Unit = with(parameters) {
         val inputJar = inputArtifact.get().asFile
+        val outputJar = outputs.file(inputJar.nameWithoutExtension + "-extracted.jar").absolutePath
 
         val tempDir = File.createTempFile("importClasses", null).apply {
             delete()
@@ -57,37 +62,41 @@ abstract class ImportClassesTransform : TransformAction<ImportClassesTransform.P
             postfix = ")",
         ) ?: ""
 
-        val rulesFile = File(tempDir, "proguard-rules.txt").apply {
-            deleteOnExit()
-            writeText(buildString {
-                appendLine("-forceprocessing")
-                appendLine("-dontwarn")
-                appendLine("-dontoptimize")
-                repackageName.orNull?.let {
-                    appendLine("-repackageclasses $it")
-                    appendLine("-adaptresourcefilenames")
-                    appendLine("-applymapping ${mappingFile!!.absolutePath}")
-                }
-                keeps.get().forEach {
-                    appendLine("-keep,allowobfuscation class $it { *; }")
-                }
-                appendLine("-injars ${inputJar.absolutePath}$filesFilter")
-                inputArtifactDependencies.forEach {
-                    appendLine("-injars ${it.absolutePath}$filesFilter")
-                }
-            })
-        }
-
         try {
             val args = buildList {
-                add("--classfile")
-                add("--output")
-                add(outputs.dir(inputJar.nameWithoutExtension + "-extracted").absolutePath)
-                add("--pg-conf")
-                add(rulesFile.absolutePath)
+                add(FORCE_PROCESSING_OPTION)
+                add(DONT_NOTE_OPTION)
+                add(DONT_WARN_OPTION)
+                add(DONT_OPTIMIZE_OPTION)
+                add(DONT_USE_MIXED_CASE_CLASS_NAMES_OPTION)
+                repackageName.orNull?.let {
+                    add(REPACKAGE_CLASSES_OPTION)
+                    add(it)
+                    add(ADAPT_RESOURCE_FILE_NAMES_OPTION)
+                    add(APPLY_MAPPING_OPTION)
+                    add(mappingFile!!.absolutePath)
+                }
+                keeps.get().forEach {
+                    add(KEEP_OPTION)
+                    add(ARGUMENT_SEPARATOR_KEYWORD)
+                    add(ALLOW_OBFUSCATION_SUBOPTION)
+                    add(CLASS_KEYWORD)
+                    add(it)
+                    add("{ *; }")
+                }
+                add(INJARS_OPTION)
+                add(inputJar.absolutePath)
+                inputArtifactDependencies.forEach {
+                    add(INJARS_OPTION)
+                    add(it.absolutePath)
+                }
+                add(OUTJARS_OPTION)
+                add("$outputJar$filesFilter")
             }
 
-            R8.main(args.toTypedArray())
+            val config = Configuration()
+            ConfigurationParser(args.toTypedArray(), null).parse(config)
+            ProGuard(config).execute()
 
         } finally {
             tempDir.deleteRecursively()

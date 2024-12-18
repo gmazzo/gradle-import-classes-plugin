@@ -36,7 +36,7 @@ dependencies {
     testImplementation(gradleKotlinDsl())
 
     compileOnly(plugin(libs.plugins.kotlin.jvm))
-    implementation(libs.android.r8)
+    implementation(libs.proguard)
 }
 
 tasks.publish {
