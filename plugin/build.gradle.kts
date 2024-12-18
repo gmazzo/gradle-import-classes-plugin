@@ -22,7 +22,7 @@ gradlePlugin {
             id = "io.github.gmazzo.importclasses"
             displayName = name
             implementationClass = "io.github.gmazzo.importclasses.ImportClassesPlugin"
-            description = "Imports and repackages dependencies using `jarjar` and `proguard` tools"
+            description = "Imports and repackages dependencies using `Proguard` tool"
             tags.addAll("jarjar", "proguard", "dependencies", "repackage", "import", "classes")
         }
     }

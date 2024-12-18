@@ -2,15 +2,14 @@ package io.github.gmazzo.importclasses
 
 import groovy.lang.Closure
 import groovy.lang.MissingMethodException
-import io.github.gmazzo.importclasses.EmptyTransform.Companion.EMPTY_TYPE
 import io.github.gmazzo.importclasses.ImportClassesExtension.Spec
+import io.github.gmazzo.importclasses.ImportClassesPlugin.Companion.EXTENSION_NAME
 import org.gradle.api.Action
 import org.gradle.api.Project
 import org.gradle.api.artifacts.type.ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE
 import org.gradle.api.artifacts.type.ArtifactTypeDefinition.JAR_TYPE
 import org.gradle.api.attributes.Category.CATEGORY_ATTRIBUTE
 import org.gradle.api.attributes.Category.LIBRARY
-import org.gradle.api.attributes.HasConfigurableAttributes
 import org.gradle.api.attributes.Usage.JAVA_RUNTIME
 import org.gradle.api.attributes.Usage.USAGE_ATTRIBUTE
 import org.gradle.api.file.ConfigurableFileCollection
@@ -31,20 +30,20 @@ internal abstract class ImportClassesExtensionImpl @Inject constructor(
 ) : ImportClassesExtension {
 
     @OptIn(ExperimentalStdlibApi::class)
-    override fun invoke(vararg dependency: Any, configure: Action<Spec>): Unit = with(project) {
-        val discriminator = "extractClasses-${Random.nextInt(16 * 8).toHexString()}"
+    override fun invoke(dependency: Any, vararg moreDependencies: Any, configure: Action<Spec>): Unit = with(project) {
 
-        val deps = dependency.map {
-            project.dependencies.create(
-                when (it) {
-                    is Provider<*> -> it.get()
-                    is ProviderConvertible<*> -> it.asProvider().get()
-                    else -> it
-                }
-            ).apply {
-                (this as? HasConfigurableAttributes<*>)?.attributes {
-                    attribute(ARTIFACT_TYPE_ATTRIBUTE, discriminator)
-                }
+        val deps = (sequenceOf(dependency) + moreDependencies).map {
+            when (it) {
+                is Provider<*> -> it.get()
+                is ProviderConvertible<*> -> it.asProvider().get()
+                else -> it
+            }
+        }.map(project.dependencies::create).toList()
+
+        val discriminator = "extractClasses-" + deps.single().let {
+            "${it.group}-${it.name}" + when (deps.size) {
+                1 -> ""
+                else -> "-${Random.nextInt(16 * 8).toHexString()}"
             }
         }
 
@@ -55,19 +54,19 @@ internal abstract class ImportClassesExtensionImpl @Inject constructor(
             attributes {
                 attribute(USAGE_ATTRIBUTE, objects.named(JAVA_RUNTIME))
                 attribute(CATEGORY_ATTRIBUTE, objects.named(LIBRARY))
-                attribute(ARTIFACT_TYPE_ATTRIBUTE, EMPTY_TYPE)
+                attribute(ARTIFACT_TYPE_ATTRIBUTE, discriminator)
             }
             dependencies.addAll(deps)
         }
 
         val spec = objects.newInstance<SpecImpl>().apply {
-            keeps.finalizeValueOnRead()
+            keepsAndRenames.finalizeValueOnRead()
             repackageTo.finalizeValueOnRead()
             filters.finalizeValueOnRead()
 
             configure.execute(this)
 
-            check(keeps.get().isNotEmpty()) { "Must call `keep(<classname>)` at least once" }
+            check(keepsAndRenames.get().isNotEmpty()) { "Must call `keep(<classname>)` at least once" }
         }
 
         val files = config.incoming.files
@@ -76,7 +75,7 @@ internal abstract class ImportClassesExtensionImpl @Inject constructor(
             registerTransform(ImportClassesTransform::class) {
                 from.attributes.attribute(ARTIFACT_TYPE_ATTRIBUTE, JAR_TYPE)
                 to.attributes.attribute(ARTIFACT_TYPE_ATTRIBUTE, discriminator)
-                parameters.keeps.value(spec.keeps)
+                parameters.keepsAndRenames.value(spec.keepsAndRenames)
                 parameters.repackageName.value(spec.repackageTo)
                 parameters.filters.value(spec.filters)
             }
@@ -90,17 +89,32 @@ internal abstract class ImportClassesExtensionImpl @Inject constructor(
      * For Groovy support
      */
     fun call(vararg args: Any) {
-        val configure =
-            args.lastOrNull() as? Closure<*>
-                ?: throw MissingMethodException("importClasses", SourceSet::class.java, args)
+        fun missingMethod(): Nothing = throw MissingMethodException(EXTENSION_NAME, SourceSet::class.java, args)
 
-        invoke(*args.dropLast(1).toTypedArray(), configure = ConfigureUtil.configureUsing(configure))
+        if (args.size < 2) missingMethod()
+        val configure = args.last() as? Closure<*> ?: missingMethod()
+
+        invoke(
+            dependency = args[0],
+            moreDependencies = args.drop(1).dropLast(1).toTypedArray(),
+            configure = ConfigureUtil.configureUsing(configure)
+        )
     }
 
     internal abstract class SpecImpl : Spec {
 
-        override fun keep(vararg className: String) {
-            keeps.addAll(className.toList())
+        override fun keep(className: String) =
+            keep(className, null)
+
+        override fun keep(className: String, renameTo: String?) {
+            if (renameTo != null) {
+                keepsAndRenames.put(className, renameTo)
+
+            } else {
+                keepsAndRenames.put(className, repackageTo
+                    .map { repackage -> "${repackage}.${className.substring(className.lastIndexOf('.') + 1)}" }
+                    .orElse(""))
+            }
         }
 
         override fun include(vararg pattern: String) {

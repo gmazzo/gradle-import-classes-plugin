@@ -1,6 +1,5 @@
 package io.github.gmazzo.importclasses
 
-import proguard.ConfigurationConstants.*
 import org.gradle.api.artifacts.transform.CacheableTransform
 import org.gradle.api.artifacts.transform.InputArtifact
 import org.gradle.api.artifacts.transform.InputArtifactDependencies
@@ -10,19 +9,32 @@ import org.gradle.api.artifacts.transform.TransformParameters
 import org.gradle.api.file.FileCollection
 import org.gradle.api.file.FileSystemLocation
 import org.gradle.api.provider.ListProperty
+import org.gradle.api.provider.MapProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.provider.Provider
-import org.gradle.api.provider.SetProperty
 import org.gradle.api.tasks.Classpath
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.Optional
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
 import proguard.Configuration
+import proguard.ConfigurationConstants.ADAPT_RESOURCE_FILE_NAMES_OPTION
+import proguard.ConfigurationConstants.ALLOW_OBFUSCATION_SUBOPTION
+import proguard.ConfigurationConstants.APPLY_MAPPING_OPTION
+import proguard.ConfigurationConstants.ARGUMENT_SEPARATOR_KEYWORD
+import proguard.ConfigurationConstants.CLASS_KEYWORD
+import proguard.ConfigurationConstants.DONT_NOTE_OPTION
+import proguard.ConfigurationConstants.DONT_OPTIMIZE_OPTION
+import proguard.ConfigurationConstants.DONT_USE_MIXED_CASE_CLASS_NAMES_OPTION
+import proguard.ConfigurationConstants.DONT_WARN_OPTION
+import proguard.ConfigurationConstants.FORCE_PROCESSING_OPTION
+import proguard.ConfigurationConstants.INJARS_OPTION
+import proguard.ConfigurationConstants.KEEP_OPTION
+import proguard.ConfigurationConstants.OUTJARS_OPTION
+import proguard.ConfigurationConstants.REPACKAGE_CLASSES_OPTION
 import proguard.ConfigurationParser
 import proguard.ProGuard
 import java.io.File
-import java.util.Properties
 
 @CacheableTransform
 abstract class ImportClassesTransform : TransformAction<ImportClassesTransform.Params> {
@@ -37,7 +49,6 @@ abstract class ImportClassesTransform : TransformAction<ImportClassesTransform.P
 
     override fun transform(outputs: TransformOutputs): Unit = with(parameters) {
         val inputJar = inputArtifact.get().asFile
-        val outputJar = outputs.file(inputJar.nameWithoutExtension + "-extracted.jar").absolutePath
 
         val tempDir = File.createTempFile("importClasses", null).apply {
             delete()
@@ -49,8 +60,10 @@ abstract class ImportClassesTransform : TransformAction<ImportClassesTransform.P
             File(tempDir, "proguard-mapping.txt").apply {
                 deleteOnExit()
                 writeText(buildString {
-                    keeps.get().forEach { className ->
-                        appendLine("$className -> ${repackage}.${className.substring(className.lastIndexOf('.') + 1)}:")
+                    keepsAndRenames.get().forEach { (originalName, newName) ->
+                        if (newName.isNotBlank()) {
+                            appendLine("$originalName -> $newName:")
+                        }
                     }
                 })
             }
@@ -61,6 +74,8 @@ abstract class ImportClassesTransform : TransformAction<ImportClassesTransform.P
             separator = ",",
             postfix = ")",
         ) ?: ""
+
+        val outputJar = File(tempDir, "extracted.jar")
 
         try {
             val args = buildList {
@@ -76,7 +91,7 @@ abstract class ImportClassesTransform : TransformAction<ImportClassesTransform.P
                     add(APPLY_MAPPING_OPTION)
                     add(mappingFile!!.absolutePath)
                 }
-                keeps.get().forEach {
+                keepsAndRenames.get().keys.forEach {
                     add(KEEP_OPTION)
                     add(ARGUMENT_SEPARATOR_KEYWORD)
                     add(ALLOW_OBFUSCATION_SUBOPTION)
@@ -98,6 +113,10 @@ abstract class ImportClassesTransform : TransformAction<ImportClassesTransform.P
             ConfigurationParser(args.toTypedArray(), null).parse(config)
             ProGuard(config).execute()
 
+            if (outputJar.exists()) {
+                outputJar.copyTo(outputs.file(inputJar.nameWithoutExtension + "-extracted.jar"))
+            }
+
         } finally {
             tempDir.deleteRecursively()
         }
@@ -106,7 +125,7 @@ abstract class ImportClassesTransform : TransformAction<ImportClassesTransform.P
     interface Params : TransformParameters {
 
         @get:Input
-        val keeps: SetProperty<String>
+        val keepsAndRenames: MapProperty<String, String>
 
         @get:Input
         @get:Optional

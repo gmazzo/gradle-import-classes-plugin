@@ -5,7 +5,7 @@
 [![Users](https://img.shields.io/badge/users_by-Sourcegraph-purple)](https://sourcegraph.com/search?q=content:io.github.gmazzo.importclasses+-repo:github.com/gmazzo/gradle-import-classes-plugin)
 
 # gradle-import-classes-plugin
-A Gradle plugin to import and repackage dependencies using `jarjar` and `proguard` tools.
+A Gradle plugin to import and repackage dependencies [`Proguard`](https://www.guardsquare.com/manual/home) tool.
 
 # Usage
 Apply the plugin:
