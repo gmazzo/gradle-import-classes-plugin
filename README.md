@@ -11,6 +11,24 @@ A Gradle plugin to import and repackage dependencies [`Proguard`](https://www.gu
 Apply the plugin:
 ```kotlin
 plugins {
+    java
     id("io.github.gmazzo.importclasses") version "<latest>" 
 }
+
 ```
+And then use the new `importClasses` DSL on the target `SourceSet` you want the classes to be imported:
+```kotlin
+sourceSets.main {
+    importClasses("org.apache.commons:commons-lang3:3.14.0") {
+        repackageTo = "org.test.imported"
+        keep("org.apache.commons.lang3.StringUtils")
+    }
+}
+```
+Then the `main` SourceSet will have the class `org.apache.commons.lang3.StringUtils` from (`org.apache.commons:commons-lang3:3.14.0`) 
+imported and repackaged as `org.test.imported.StringUtils`.
+
+> [!NOTE]
+> This plugin uses Gradle's [Artifact Transform](https://docs.gradle.org/current/userguide/artifact_transforms.html) 
+> by running [`Proguard`](https://www.guardsquare.com/manual/home) on the target dependency.
+> You can pass any Proguard option to it inside `importClasses`'s configuration block by calling `option(<rule>)`

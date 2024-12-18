@@ -10,8 +10,8 @@ class RepackageTest {
     @ParameterizedTest
     @CsvSource({
             "org.eclipse.jgit.api.Git, false",
-            "org.eclipse.jgit.ignore.FastIgnoreRule, false",
-            "io.github.gmazzo.importclasses.demo.imported.FastIgnoreRule, true",
+            "org.apache.commons.lang3.StringUtils, false",
+            "io.github.gmazzo.importclasses.demo.imported.StringUtils, true",
     })
     void classesShouldBeShrinkAndRepackaged(String className, boolean expectedFound) {
         boolean exists = false;

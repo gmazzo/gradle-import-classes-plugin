@@ -7,9 +7,9 @@ plugins {
 java.toolchain.languageVersion = JavaLanguageVersion.of(libs.versions.java.get())
 
 sourceSets.main {
-    importClasses(libs.demo.jgit) {
+    importClasses(libs.demo.common.string) {
         repackageTo = "io.github.gmazzo.importclasses.demo.imported"
-        keep("org.eclipse.jgit.ignore.FastIgnoreRule")
+        keep("org.apache.commons.lang3.StringUtils")
 
         exclude("META-INF/**/module-info.class")
         include("**.class")
@@ -20,7 +20,6 @@ sourceSets.main {
 dependencies {
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.params)
-    testRuntimeOnly(libs.demo.slf4j)
 }
 
 testing.suites.withType<JvmTestSuite> {
