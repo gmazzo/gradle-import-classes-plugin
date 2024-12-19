@@ -3,6 +3,7 @@ import org.gradle.api.plugins.jvm.JvmTestSuite
 plugins {
     id("groovy")
     id("io.github.gmazzo.importclasses")
+    id("jacoco")
 }
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(libs.versions.java.get())
@@ -27,4 +28,12 @@ dependencies {
 
 testing.suites.withType(JvmTestSuite) {
     useJUnitJupiter()
+}
+
+tasks.test {
+    finalizedBy(tasks.jacocoTestReport)
+}
+
+tasks.jacocoTestReport {
+    reports.xml.required = true
 }

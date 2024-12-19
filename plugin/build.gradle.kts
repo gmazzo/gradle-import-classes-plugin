@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.samReceiver)
     alias(libs.plugins.gradle.pluginPublish)
     alias(libs.plugins.publicationsReport)
+    jacoco
 }
 
 group = "io.github.gmazzo.importclasses"
@@ -35,9 +36,23 @@ dependencies {
 
     compileOnly(gradleKotlinDsl())
     testImplementation(gradleKotlinDsl())
+    testImplementation(gradleTestKit())
+    testImplementation(plugin(libs.plugins.kotlin.jvm))
 
     compileOnly(plugin(libs.plugins.kotlin.jvm))
     implementation(libs.proguard)
+}
+
+testing.suites.withType<JvmTestSuite> {
+    useJUnitJupiter()
+}
+
+tasks.test {
+    finalizedBy(tasks.jacocoTestReport)
+}
+
+tasks.jacocoTestReport {
+    reports.xml.required = true
 }
 
 tasks.publish {
