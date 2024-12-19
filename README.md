@@ -25,8 +25,22 @@ sourceSets.main {
     }
 }
 ```
+
 Then the `main` SourceSet will have the class `org.apache.commons.lang3.StringUtils` from (`org.apache.commons:commons-lang3:3.14.0`) 
 imported and repackaged as `org.test.imported.StringUtils`.
+```java
+package org.test;
+
+import org.test.imported.StringUtils;
+
+public class Foo {
+
+    public String swapCase(String string) {
+        return StringUtils.swapCase(string);
+    }
+
+}
+```
 
 > [!NOTE]
 > This plugin uses Gradle's [Artifact Transform](https://docs.gradle.org/current/userguide/artifact_transforms.html) 
