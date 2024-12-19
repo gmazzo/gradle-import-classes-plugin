@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.kotlin.jvm)
     id("io.github.gmazzo.importclasses")
     `maven-publish`
+    jacoco
 }
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(libs.versions.java.get())
@@ -24,4 +25,12 @@ dependencies {
 
 testing.suites.withType<JvmTestSuite> {
     useJUnitJupiter()
+}
+
+tasks.test {
+    finalizedBy(tasks.jacocoTestReport)
+}
+
+tasks.jacocoTestReport {
+    reports.xml.required = true
 }
