@@ -39,7 +39,6 @@ dependencies {
     testImplementation(gradleTestKit())
     testImplementation(plugin(libs.plugins.kotlin.jvm))
 
-    compileOnly(plugin(libs.plugins.kotlin.jvm))
     implementation(libs.proguard)
 }
 
