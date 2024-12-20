@@ -9,13 +9,11 @@ plugins {
 java.toolchain.languageVersion = JavaLanguageVersion.of(libs.versions.java.get())
 
 sourceSets.main {
-    importClasses(libs.demo.common.string) {
+    importClasses(libs.demo.commons.lang3) {
         repackageTo = "io.github.gmazzo.importclasses.demo.imported"
         keep("org.apache.commons.lang3.StringUtils")
 
-        exclude("META-INF/**/module-info.class")
         include("**.class")
-        exclude("**.*")
     }
 }
 

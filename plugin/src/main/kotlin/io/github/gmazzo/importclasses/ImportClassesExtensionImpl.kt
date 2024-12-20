@@ -65,12 +65,28 @@ internal abstract class ImportClassesExtensionImpl @Inject constructor(
             extraOptions.finalizeValueOnRead()
             includeTransitiveDependencies.convention(false).finalizeValueOnRead()
 
+            // excludes by default all known resources related to the module build process
+            exclude(
+                "META-INF/LICENSE.txt",
+                "META-INF/MANIFEST.MF",
+                "META-INF/*.kotlin_module",
+                "META-INF/*.SF",
+                "META-INF/*.DSA",
+                "META-INF/*.RSA",
+                "META-INF/maven/**",
+                "META-INF/versions/*/module-info.class"
+            )
+
             configure.execute(this)
 
             check(keepsAndRenames.get().isNotEmpty()) { "Must call `keep(<classname>)` at least once" }
         }
 
-        val files = config.incoming.files
+        val jars = config.incoming.files
+        val classes = files()
+            .from(provider { jars.asFileTree.map(::zipTree) })
+            .builtBy(jars)
+            .apply { finalizeValueOnRead() }
 
         dependencies {
             registerTransform(ImportClassesTransform::class) {
@@ -83,10 +99,10 @@ internal abstract class ImportClassesExtensionImpl @Inject constructor(
                 parameters.includeTransitiveDependencies.value(spec.includeTransitiveDependencies)
             }
 
-            sourceSet.compileOnlyConfigurationName(files)
-            sourceSet.runtimeOnlyConfigurationName(files)
+            sourceSet.compileOnlyConfigurationName(jars)
+            sourceSet.runtimeOnlyConfigurationName(jars)
         }
-        (sourceSet.output.classesDirs as? ConfigurableFileCollection)?.from(provider { files.map(::zipTree) })
+        (sourceSet.output.classesDirs as ConfigurableFileCollection).from(classes)
     }
 
     /**
