@@ -84,7 +84,7 @@ internal abstract class ImportClassesExtensionImpl @Inject constructor(
 
         val jars = config.incoming.files
         val classes = files()
-            .from(provider { jars.map(::zipTree) })
+            .from(provider { jars.asFileTree.map(::zipTree) })
             .builtBy(jars)
             .apply { finalizeValueOnRead() }
 
