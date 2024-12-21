@@ -12,6 +12,7 @@ import org.gradle.api.attributes.Category.LIBRARY
 import org.gradle.api.attributes.Usage.JAVA_RUNTIME
 import org.gradle.api.attributes.Usage.USAGE_ATTRIBUTE
 import org.gradle.api.file.ConfigurableFileCollection
+import org.gradle.api.file.DuplicatesStrategy
 import org.gradle.api.provider.Provider
 import org.gradle.api.provider.ProviderConvertible
 import org.gradle.api.tasks.SourceSet
@@ -29,7 +30,11 @@ internal abstract class ImportClassesExtensionImpl @Inject constructor(
 ) : ImportClassesExtension {
 
     @OptIn(ExperimentalStdlibApi::class)
-    override fun invoke(dependency: Any, vararg moreDependencies: Any, configure: Action<ImportClassesSpec>): Unit = with(project) {
+    override fun invoke(
+        dependency: Any,
+        vararg moreDependencies: Any,
+        configure: Action<ImportClassesSpec>,
+    ): Unit = with(project) {
 
         val deps = (sequenceOf(dependency) + moreDependencies).map {
             when (it) {
@@ -83,25 +88,31 @@ internal abstract class ImportClassesExtensionImpl @Inject constructor(
         }
 
         val jars = config.incoming.files
+        val classesDir = layout.buildDirectory.dir("imported-classes/$name")
         val classes = files()
-            .from(provider { jars.asFileTree.map(::zipTree) })
-            .builtBy(jars)
+            .from(provider {
+                sync {
+                    duplicatesStrategy = DuplicatesStrategy.WARN
+                    jars.asFileTree.forEach { from(zipTree(it)) }
+                    into(classesDir)
+                }
+                classesDir
+            })
+            .builtBy(config)
             .apply { finalizeValueOnRead() }
 
-        dependencies {
-            registerTransform(ImportClassesTransform::class) {
-                from.attributes.attribute(ARTIFACT_TYPE_ATTRIBUTE, JAR_TYPE)
-                to.attributes.attribute(ARTIFACT_TYPE_ATTRIBUTE, discriminator)
-                parameters.keepsAndRenames.value(spec.keepsAndRenames)
-                parameters.repackageName.value(spec.repackageTo)
-                parameters.filters.value(spec.filters)
-                parameters.extraOptions.value(spec.extraOptions)
-                parameters.includeTransitiveDependencies.value(spec.includeTransitiveDependencies)
-            }
-
-            sourceSet.compileOnlyConfigurationName(jars)
-            sourceSet.runtimeOnlyConfigurationName(jars)
+        dependencies.registerTransform(ImportClassesTransform::class) {
+            from.attributes.attribute(ARTIFACT_TYPE_ATTRIBUTE, JAR_TYPE)
+            to.attributes.attribute(ARTIFACT_TYPE_ATTRIBUTE, discriminator)
+            parameters.keepsAndRenames.value(spec.keepsAndRenames)
+            parameters.repackageName.value(spec.repackageTo)
+            parameters.filters.value(spec.filters)
+            parameters.extraOptions.value(spec.extraOptions)
+            parameters.includeTransitiveDependencies.value(spec.includeTransitiveDependencies)
         }
+
+        dependencies.add(sourceSet.compileOnlyConfigurationName, jars)
+
         (sourceSet.output.classesDirs as ConfigurableFileCollection).from(classes)
     }
 

@@ -76,7 +76,7 @@ abstract class ImportClassesTransform : TransformAction<ImportClassesTransform.P
             postfix = ")",
         ) ?: ""
 
-        val proguardJar = File(tempDir, "extracted.jar")
+        val proguardJar = File(tempDir, inputJar.nameWithoutExtension + "-proguarded.jar")
 
         try {
             val args = buildList {
@@ -116,7 +116,7 @@ abstract class ImportClassesTransform : TransformAction<ImportClassesTransform.P
             ProGuard(config).execute()
 
             if (proguardJar.exists()) {
-                proguardJar.copyTo(outputs.file(inputJar.nameWithoutExtension + "-extracted.jar"))
+                proguardJar.copyTo(outputs.file(inputJar.nameWithoutExtension + "-imported.jar"))
             }
 
         } finally {
