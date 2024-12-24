@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalStdlibApi::class)
+
 package io.github.gmazzo.importclasses
 
 import groovy.lang.Closure
@@ -5,60 +7,55 @@ import groovy.lang.MissingMethodException
 import io.github.gmazzo.importclasses.ImportClassesPlugin.Companion.EXTENSION_NAME
 import org.gradle.api.Action
 import org.gradle.api.Project
-import org.gradle.api.artifacts.type.ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE
-import org.gradle.api.artifacts.type.ArtifactTypeDefinition.JAR_TYPE
+import org.gradle.api.artifacts.Dependency
 import org.gradle.api.attributes.Category.CATEGORY_ATTRIBUTE
 import org.gradle.api.attributes.Category.LIBRARY
-import org.gradle.api.attributes.Usage.JAVA_RUNTIME
-import org.gradle.api.attributes.Usage.USAGE_ATTRIBUTE
+import org.gradle.api.attributes.LibraryElements.CLASSES
+import org.gradle.api.attributes.LibraryElements.JAR
+import org.gradle.api.attributes.LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE
+import org.gradle.api.attributes.LibraryElements.RESOURCES
 import org.gradle.api.file.ConfigurableFileCollection
-import org.gradle.api.file.DuplicatesStrategy
 import org.gradle.api.provider.Provider
 import org.gradle.api.provider.ProviderConvertible
 import org.gradle.api.tasks.SourceSet
-import org.gradle.kotlin.dsl.dependencies
 import org.gradle.kotlin.dsl.named
 import org.gradle.kotlin.dsl.newInstance
 import org.gradle.kotlin.dsl.registerTransform
 import org.gradle.util.internal.ConfigureUtil
+import java.util.*
 import javax.inject.Inject
-import kotlin.random.Random
 
 internal abstract class ImportClassesExtensionImpl @Inject constructor(
     private val project: Project,
     private val sourceSet: SourceSet,
 ) : ImportClassesExtension {
 
-    @OptIn(ExperimentalStdlibApi::class)
     override fun invoke(
         dependency: Any,
         vararg moreDependencies: Any,
         configure: Action<ImportClassesSpec>,
     ): Unit = with(project) {
 
-        val deps = (sequenceOf(dependency) + moreDependencies).map {
-            when (it) {
-                is Provider<*> -> it.get()
-                is ProviderConvertible<*> -> it.asProvider().get()
-                else -> it
+        val deps = (sequenceOf(dependency) + moreDependencies)
+            .map {
+                when (it) {
+                    is Provider<*> -> it.get()
+                    is ProviderConvertible<*> -> it.asProvider().get()
+                    else -> it
+                }
             }
-        }.map(project.dependencies::create).toList()
+            .map(project.dependencies::create)
+            .toSortedSet(compareBy { it.discriminatorPart })
 
-        val discriminator = "extractClasses-" + deps.single().let {
-            "${it.group}-${it.name}" + when (deps.size) {
-                1 -> ""
-                else -> "-${Random.nextInt(16 * 8).toHexString()}"
-            }
-        }
+        val discriminator = computeDiscriminator(deps)
 
         val config = configurations.maybeCreate(discriminator).apply {
             isCanBeResolved = true
             isCanBeConsumed = false
             isVisible = false
             attributes {
-                attribute(USAGE_ATTRIBUTE, objects.named(JAVA_RUNTIME))
                 attribute(CATEGORY_ATTRIBUTE, objects.named(LIBRARY))
-                attribute(ARTIFACT_TYPE_ATTRIBUTE, discriminator)
+                attribute(LIBRARY_ELEMENTS_ATTRIBUTE, objects.named(JAR))
             }
             dependencies.addAll(deps)
         }
@@ -87,23 +84,9 @@ internal abstract class ImportClassesExtensionImpl @Inject constructor(
             check(keepsAndRenames.get().isNotEmpty()) { "Must call `keep(<classname>)` at least once" }
         }
 
-        val jars = config.incoming.files
-        val classesDir = layout.buildDirectory.dir("imported-classes/$name")
-        val classes = files()
-            .from(provider {
-                sync {
-                    duplicatesStrategy = DuplicatesStrategy.WARN
-                    jars.asFileTree.forEach { from(zipTree(it)) }
-                    into(classesDir)
-                }
-                classesDir
-            })
-            .builtBy(config)
-            .apply { finalizeValueOnRead() }
-
         dependencies.registerTransform(ImportClassesTransform::class) {
-            from.attributes.attribute(ARTIFACT_TYPE_ATTRIBUTE, JAR_TYPE)
-            to.attributes.attribute(ARTIFACT_TYPE_ATTRIBUTE, discriminator)
+            from.attribute(LIBRARY_ELEMENTS_ATTRIBUTE, objects.named(JAR))
+            to.attribute(LIBRARY_ELEMENTS_ATTRIBUTE, objects.named("$JAR+$discriminator"))
             parameters.keepsAndRenames.value(spec.keepsAndRenames)
             parameters.repackageName.value(spec.repackageTo)
             parameters.filters.value(spec.filters)
@@ -111,9 +94,25 @@ internal abstract class ImportClassesExtensionImpl @Inject constructor(
             parameters.includeTransitiveDependencies.value(spec.includeTransitiveDependencies)
         }
 
-        dependencies.add(sourceSet.compileOnlyConfigurationName, jars)
+        dependencies.registerTransform(ExtractJARTransform::class) {
+            from.attributes.attribute(LIBRARY_ELEMENTS_ATTRIBUTE, objects.named("$JAR+$discriminator"))
+            to.attributes.attribute(LIBRARY_ELEMENTS_ATTRIBUTE, objects.named("$CLASSES+$discriminator"))
+            parameters.forResources = false
+        }
 
-        (sourceSet.output.classesDirs as ConfigurableFileCollection).from(classes)
+        dependencies.registerTransform(ExtractJARTransform::class) {
+            from.attributes.attribute(LIBRARY_ELEMENTS_ATTRIBUTE, objects.named("$JAR+$discriminator"))
+            to.attributes.attribute(LIBRARY_ELEMENTS_ATTRIBUTE, objects.named("$RESOURCES+$discriminator"))
+            parameters.forResources = true
+        }
+
+        fun extractedFiles(ofType: String) = config.incoming.artifactView {
+            attributes.attribute(LIBRARY_ELEMENTS_ATTRIBUTE, objects.named("$ofType+$discriminator"))
+        }.files
+
+        dependencies.add(sourceSet.compileOnlyConfigurationName, extractedFiles(JAR))
+        (sourceSet.output.classesDirs as ConfigurableFileCollection).from(extractedFiles(CLASSES))
+        sourceSet.resources.srcDir(extractedFiles(RESOURCES))
     }
 
     /**
@@ -130,6 +129,19 @@ internal abstract class ImportClassesExtensionImpl @Inject constructor(
             moreDependencies = args.drop(1).dropLast(1).toTypedArray(),
             configure = ConfigureUtil.configureUsing(configure)
         )
+    }
+
+    private val Dependency.discriminatorPart
+        get() = "$group-$name"
+
+    private fun computeDiscriminator(dependencies: SortedSet<Dependency>) = buildString {
+        check(dependencies.isNotEmpty()) { "At least one dependency is required" }
+        append("imported-")
+        append(dependencies.first().discriminatorPart)
+        if (dependencies.size > 1) {
+            append('-')
+            append(dependencies.drop(1).map { it.discriminatorPart }.hashCode().toHexString())
+        }
     }
 
 }

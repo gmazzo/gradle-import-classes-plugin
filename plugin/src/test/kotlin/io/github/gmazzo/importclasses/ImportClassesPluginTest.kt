@@ -1,12 +1,11 @@
 package io.github.gmazzo.importclasses
 
 import org.gradle.api.tasks.SourceSetContainer
-import org.gradle.testfixtures.ProjectBuilder
-import org.junit.jupiter.api.Test
-import org.junit.jupiter.params.ParameterizedTest
-import org.junit.jupiter.params.provider.CsvSource
 import org.gradle.kotlin.dsl.apply
 import org.gradle.kotlin.dsl.the
+import org.gradle.testfixtures.ProjectBuilder
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 
 class ImportClassesPluginTest {
 
