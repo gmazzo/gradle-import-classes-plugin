@@ -10,6 +10,7 @@ import org.gradle.api.Project
 import org.gradle.api.artifacts.Dependency
 import org.gradle.api.attributes.Category.CATEGORY_ATTRIBUTE
 import org.gradle.api.attributes.Category.LIBRARY
+import org.gradle.api.attributes.LibraryElements
 import org.gradle.api.attributes.LibraryElements.CLASSES
 import org.gradle.api.attributes.LibraryElements.JAR
 import org.gradle.api.attributes.LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE
@@ -48,6 +49,9 @@ internal abstract class ImportClassesExtensionImpl @Inject constructor(
             .toSortedSet(compareBy { it.discriminatorPart })
 
         val discriminator = computeDiscriminator(deps)
+        val jarElements: LibraryElements = objects.named("$JAR+$discriminator")
+        val classesElements: LibraryElements = objects.named("$CLASSES+$discriminator")
+        val resourcesElements: LibraryElements = objects.named("$RESOURCES+$discriminator")
 
         val config = configurations.maybeCreate(discriminator).apply {
             isCanBeResolved = true
@@ -86,7 +90,7 @@ internal abstract class ImportClassesExtensionImpl @Inject constructor(
 
         dependencies.registerTransform(ImportClassesTransform::class) {
             from.attribute(LIBRARY_ELEMENTS_ATTRIBUTE, objects.named(JAR))
-            to.attribute(LIBRARY_ELEMENTS_ATTRIBUTE, objects.named("$JAR+$discriminator"))
+            to.attribute(LIBRARY_ELEMENTS_ATTRIBUTE, jarElements)
             parameters.keepsAndRenames.value(spec.keepsAndRenames)
             parameters.repackageName.value(spec.repackageTo)
             parameters.filters.value(spec.filters)
@@ -95,24 +99,24 @@ internal abstract class ImportClassesExtensionImpl @Inject constructor(
         }
 
         dependencies.registerTransform(ExtractJARTransform::class) {
-            from.attributes.attribute(LIBRARY_ELEMENTS_ATTRIBUTE, objects.named("$JAR+$discriminator"))
-            to.attributes.attribute(LIBRARY_ELEMENTS_ATTRIBUTE, objects.named("$CLASSES+$discriminator"))
+            from.attributes.attribute(LIBRARY_ELEMENTS_ATTRIBUTE, jarElements)
+            to.attributes.attribute(LIBRARY_ELEMENTS_ATTRIBUTE, classesElements)
             parameters.forResources = false
         }
 
         dependencies.registerTransform(ExtractJARTransform::class) {
-            from.attributes.attribute(LIBRARY_ELEMENTS_ATTRIBUTE, objects.named("$JAR+$discriminator"))
-            to.attributes.attribute(LIBRARY_ELEMENTS_ATTRIBUTE, objects.named("$RESOURCES+$discriminator"))
+            from.attributes.attribute(LIBRARY_ELEMENTS_ATTRIBUTE, jarElements)
+            to.attributes.attribute(LIBRARY_ELEMENTS_ATTRIBUTE, resourcesElements)
             parameters.forResources = true
         }
 
-        fun extractedFiles(ofType: String) = config.incoming.artifactView {
-            attributes.attribute(LIBRARY_ELEMENTS_ATTRIBUTE, objects.named("$ofType+$discriminator"))
-        }.files
+        fun extractedFiles(elements: LibraryElements) = config.incoming
+            .artifactView { attributes.attribute(LIBRARY_ELEMENTS_ATTRIBUTE, elements) }
+            .files
 
-        dependencies.add(sourceSet.compileOnlyConfigurationName, extractedFiles(JAR))
-        (sourceSet.output.classesDirs as ConfigurableFileCollection).from(extractedFiles(CLASSES))
-        sourceSet.resources.srcDir(extractedFiles(RESOURCES))
+        dependencies.add(sourceSet.compileOnlyConfigurationName, extractedFiles(jarElements))
+        (sourceSet.output.classesDirs as ConfigurableFileCollection).from(extractedFiles(classesElements))
+        sourceSet.resources.srcDir(extractedFiles(resourcesElements))
     }
 
     /**
