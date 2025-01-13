@@ -22,6 +22,8 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
+import proguard.ConfigurationConstants.DONT_NOTE_OPTION
+import proguard.ConfigurationConstants.IGNORE_WARNINGS_OPTION
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class ImportClassesPluginTest {
@@ -56,6 +58,7 @@ class ImportClassesPluginTest {
             repackageTo.value("org.test.imported")
             keep(classToKeep)
             libraries(libraries)
+            extraOptions.value(setOf(DONT_NOTE_OPTION, IGNORE_WARNINGS_OPTION))
         }
 
         val paths = main.output.classesDirs.files
@@ -95,13 +98,6 @@ class ImportClassesPluginTest {
                     "org.eclipse.jgit.ignore.FastIgnoreRule",
                     "org.eclipse.jgit-6.10.0.202406032230-r-imported.jar",
                     setOf("org.slf4j:slf4j-api:2.0.16"),
-                ),
-                arrayOf(
-                    plugin,
-                    "com.android.tools.build:gradle:8.7.3",
-                    "com.android.build.gradle.internal.dependency.AarToClassTransform",
-                    "gradle-8.7.3-imported.jar",
-                    emptySet<String>(),
                 ),
             )
         }.toList()

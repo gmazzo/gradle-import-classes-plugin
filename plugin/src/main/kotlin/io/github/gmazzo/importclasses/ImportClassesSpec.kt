@@ -69,12 +69,19 @@ interface ImportClassesSpec {
     fun option(vararg option: String)
 
     /**
-     * By default, [keepsAndRenames] will only look for classes in the direct dependencies
-     * (any transitive dependency will be mapped to Proguard as `-libraryjars`).
-     *
-     * Enable this to include transitive dependencies as well, and map them as `-injars`.
-     * This will affect the outcome of the final class
+     * Transitive dependencies of the target one to be imported, that should be mapped as `-libraryjars` in `Proguard`.
+     * By default, the target and any of its transitive dependencies will be mapped as `-injars`.
      */
-    val includeTransitiveDependencies: Property<Boolean>
+    val libraries: SetProperty<Any>
+
+    fun libraries(dependency: Any, vararg others: Any) {
+        (sequenceOf(dependency) + others).forEach {
+            when (it) {
+                is Array<*> -> libraries.addAll(it)
+                is Iterable<*> -> libraries.addAll(it)
+                else -> libraries.add(it)
+            }
+        }
+    }
 
 }
