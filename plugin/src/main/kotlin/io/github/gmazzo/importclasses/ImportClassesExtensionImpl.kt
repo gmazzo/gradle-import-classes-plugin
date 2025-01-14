@@ -9,7 +9,6 @@ import org.gradle.api.Action
 import org.gradle.api.Project
 import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.Dependency
-import org.gradle.api.artifacts.result.ResolvedDependencyResult
 import org.gradle.api.attributes.Category.CATEGORY_ATTRIBUTE
 import org.gradle.api.attributes.Category.LIBRARY
 import org.gradle.api.attributes.LibraryElements
@@ -119,24 +118,12 @@ internal abstract class ImportClassesExtensionImpl @Inject constructor(
         }
 
         dependencies.registerTransform(ImportClassesTransform::class) {
-            val targetJar = config.incoming.resolutionResult.rootComponent.map { root ->
-                val targetId = root.dependencies.asSequence()
-                    .filterIsInstance<ResolvedDependencyResult>()
-                    .first().selected.id
-
-                config.incoming
-                    .artifactView { componentFilter { it == targetId } }
-                    .files
-                    .singleFile
-            }
-
             val libraries = configurations
                 .detachedConfiguration(*spec.libraries.get().map(project.dependencies::create).toTypedArray())
                 .configureAttrs()
 
             from.attribute(LIBRARY_ELEMENTS_ATTRIBUTE, objects.named(JAR))
             to.attribute(LIBRARY_ELEMENTS_ATTRIBUTE, jarElements)
-            parameters.targetJAR.value(layout.file(targetJar))
             parameters.inJARs.from(config)
             parameters.libraryJARs.from(libraries)
             parameters.keepsAndRenames.value(spec.keepsAndRenames)

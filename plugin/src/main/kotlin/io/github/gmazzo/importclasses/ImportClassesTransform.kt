@@ -7,7 +7,6 @@ import org.gradle.api.artifacts.transform.TransformOutputs
 import org.gradle.api.artifacts.transform.TransformParameters
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.FileSystemLocation
-import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.MapProperty
 import org.gradle.api.provider.Property
@@ -45,7 +44,7 @@ abstract class ImportClassesTransform : TransformAction<ImportClassesTransform.P
     abstract val inputArtifact: Provider<FileSystemLocation>
 
     override fun transform(outputs: TransformOutputs): Unit = with(parameters) {
-        if (inputArtifact.get().asFile != targetJAR.get().asFile) {
+        if (inputArtifact.get().asFile != inJARs.firstOrNull()) {
             // since transform will run per each dependency in the graph,
             // we only run it once for the first main dependency
             return@with
@@ -124,9 +123,6 @@ abstract class ImportClassesTransform : TransformAction<ImportClassesTransform.P
     }
 
     interface Params : TransformParameters {
-
-        @get:Classpath
-        val targetJAR: RegularFileProperty
 
         @get:Classpath
         val inJARs: ConfigurableFileCollection
