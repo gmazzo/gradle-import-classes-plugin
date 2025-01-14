@@ -7,7 +7,9 @@ import groovy.lang.MissingMethodException
 import io.github.gmazzo.importclasses.ImportClassesPlugin.Companion.EXTENSION_NAME
 import org.gradle.api.Action
 import org.gradle.api.Project
+import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.Dependency
+import org.gradle.api.artifacts.result.ResolvedDependencyResult
 import org.gradle.api.attributes.Category.CATEGORY_ATTRIBUTE
 import org.gradle.api.attributes.Category.LIBRARY
 import org.gradle.api.attributes.LibraryElements
@@ -15,6 +17,8 @@ import org.gradle.api.attributes.LibraryElements.CLASSES
 import org.gradle.api.attributes.LibraryElements.JAR
 import org.gradle.api.attributes.LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE
 import org.gradle.api.attributes.LibraryElements.RESOURCES
+import org.gradle.api.attributes.Usage.JAVA_RUNTIME
+import org.gradle.api.attributes.Usage.USAGE_ATTRIBUTE
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.DuplicatesStrategy
 import org.gradle.api.provider.Provider
@@ -26,6 +30,9 @@ import org.gradle.kotlin.dsl.newInstance
 import org.gradle.kotlin.dsl.register
 import org.gradle.kotlin.dsl.registerTransform
 import org.gradle.util.internal.ConfigureUtil
+import proguard.ConfigurationConstants.DONT_NOTE_OPTION
+import proguard.ConfigurationConstants.DONT_WARN_OPTION
+import proguard.ConfigurationConstants.IGNORE_WARNINGS_OPTION
 import java.util.*
 import javax.inject.Inject
 
@@ -57,23 +64,42 @@ internal abstract class ImportClassesExtensionImpl @Inject constructor(
         val classesElements: LibraryElements = objects.named("$CLASSES+$discriminator")
         val resourcesElements: LibraryElements = objects.named("$RESOURCES+$discriminator")
 
+        fun Configuration.configureAttrs() = attributes {
+            attribute(USAGE_ATTRIBUTE, objects.named(JAVA_RUNTIME))
+            attribute(CATEGORY_ATTRIBUTE, objects.named(LIBRARY))
+            attribute(LIBRARY_ELEMENTS_ATTRIBUTE, objects.named(JAR))
+        }
+
         val config = configurations.maybeCreate(discriminator).apply {
             isCanBeResolved = true
             isCanBeConsumed = false
             isVisible = false
-            attributes {
-                attribute(CATEGORY_ATTRIBUTE, objects.named(LIBRARY))
-                attribute(LIBRARY_ELEMENTS_ATTRIBUTE, objects.named(JAR))
-            }
+            configureAttrs()
             dependencies.addAll(deps)
         }
 
         val spec = objects.newInstance<ImportClassesSpecImpl>().apply {
-            keepsAndRenames.finalizeValueOnRead()
-            repackageTo.finalizeValueOnRead()
-            filters.finalizeValueOnRead()
-            extraOptions.finalizeValueOnRead()
-            includeTransitiveDependencies.convention(false).finalizeValueOnRead()
+
+            keepsAndRenames
+                .finalizeValueOnRead()
+
+            repackageTo
+                .finalizeValueOnRead()
+
+            filters
+                .finalizeValueOnRead()
+
+            extraOptions
+                .apply {
+                    if (!logger.isDebugEnabled) addAll(
+                        DONT_NOTE_OPTION,
+                        if (logger.isInfoEnabled) IGNORE_WARNINGS_OPTION else DONT_WARN_OPTION
+                    )
+                }
+                .finalizeValueOnRead()
+
+            libraries
+                .finalizeValueOnRead()
 
             // excludes by default all known resources related to the module build process
             exclude(
@@ -93,13 +119,30 @@ internal abstract class ImportClassesExtensionImpl @Inject constructor(
         }
 
         dependencies.registerTransform(ImportClassesTransform::class) {
+            val targetJar = config.incoming.resolutionResult.rootComponent.map { root ->
+                val targetId = root.dependencies.asSequence()
+                    .filterIsInstance<ResolvedDependencyResult>()
+                    .first().selected.id
+
+                config.incoming
+                    .artifactView { componentFilter { it == targetId } }
+                    .files
+                    .singleFile
+            }
+
+            val libraries = configurations
+                .detachedConfiguration(*spec.libraries.get().map(project.dependencies::create).toTypedArray())
+                .configureAttrs()
+
             from.attribute(LIBRARY_ELEMENTS_ATTRIBUTE, objects.named(JAR))
             to.attribute(LIBRARY_ELEMENTS_ATTRIBUTE, jarElements)
+            parameters.targetJAR.value(layout.file(targetJar))
+            parameters.inJARs.from(config)
+            parameters.libraryJARs.from(libraries)
             parameters.keepsAndRenames.value(spec.keepsAndRenames)
             parameters.repackageName.value(spec.repackageTo)
             parameters.filters.value(spec.filters)
             parameters.extraOptions.value(spec.extraOptions)
-            parameters.includeTransitiveDependencies.value(spec.includeTransitiveDependencies)
         }
 
         dependencies.registerTransform(ExtractJARTransform::class) {
@@ -119,11 +162,12 @@ internal abstract class ImportClassesExtensionImpl @Inject constructor(
             .files
 
         // a task is required when dependencies are generated by tasks of the build, since it's exposed as an outgoing variant artifact
-        val extractClasses = tasks.register<Sync>("extract${disambiguator.replaceFirstChar { it.uppercase() }}ImportedClasses") {
-            from(extractedFiles(classesElements))
-            into(layout.buildDirectory.dir("imported-classes/$disambiguator"))
-            duplicatesStrategy = DuplicatesStrategy.WARN
-        }
+        val extractClasses =
+            tasks.register<Sync>("extract${disambiguator.replaceFirstChar { it.uppercase() }}ImportedClasses") {
+                from(extractedFiles(classesElements))
+                into(layout.buildDirectory.dir("imported-classes/$disambiguator"))
+                duplicatesStrategy = DuplicatesStrategy.WARN
+            }
 
         dependencies.add(sourceSet.compileOnlyConfigurationName, extractedFiles(jarElements))
         (sourceSet.output.classesDirs as ConfigurableFileCollection).from(extractClasses)
@@ -133,6 +177,7 @@ internal abstract class ImportClassesExtensionImpl @Inject constructor(
     /**
      * For Groovy support
      */
+    @Suppress("unused")
     fun call(vararg args: Any) {
         fun missingMethod(): Nothing = throw MissingMethodException(EXTENSION_NAME, SourceSet::class.java, args)
 
