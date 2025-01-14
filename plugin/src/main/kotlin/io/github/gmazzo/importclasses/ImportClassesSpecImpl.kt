@@ -1,6 +1,14 @@
 package io.github.gmazzo.importclasses
 
-internal abstract class ImportClassesSpecImpl : ImportClassesSpec {
+import org.gradle.api.artifacts.Configuration
+import javax.inject.Inject
+
+internal abstract class ImportClassesSpecImpl @Inject constructor(
+    val disambiguator: String,
+    val elementsDiscriminator: String,
+    override val importConfiguration: Configuration,
+    override val librariesConfiguration: Configuration,
+) : ImportClassesSpec {
 
     override fun keep(className: String) =
         keep(className, null)

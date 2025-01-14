@@ -1,5 +1,6 @@
 package io.github.gmazzo.importclasses
 
+import org.gradle.api.artifacts.Configuration
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.MapProperty
 import org.gradle.api.provider.Property
@@ -83,5 +84,15 @@ interface ImportClassesSpec {
             }
         }
     }
+
+    /**
+     * Exposes the configuration used to resolve the dependencies to be imported.
+     */
+    val importConfiguration: Configuration
+
+    /**
+     * Exposes the configuration used to resolve the [libraries] dependencies.
+     */
+    val librariesConfiguration: Configuration
 
 }

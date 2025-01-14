@@ -47,6 +47,7 @@ testing.suites.withType<JvmTestSuite> {
 }
 
 tasks.test {
+    maxHeapSize = "1g"
     finalizedBy(tasks.jacocoTestReport)
 }
 

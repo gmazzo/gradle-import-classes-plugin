@@ -7,7 +7,6 @@ import groovy.lang.MissingMethodException
 import io.github.gmazzo.importclasses.ImportClassesPlugin.Companion.EXTENSION_NAME
 import org.gradle.api.Action
 import org.gradle.api.Project
-import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.Dependency
 import org.gradle.api.attributes.Category.CATEGORY_ATTRIBUTE
 import org.gradle.api.attributes.Category.LIBRARY
@@ -44,88 +43,85 @@ internal abstract class ImportClassesExtensionImpl @Inject constructor(
         dependency: Any,
         vararg moreDependencies: Any,
         configure: Action<ImportClassesSpec>,
-    ): Unit = with(project) {
+    ): ImportClassesSpecImpl = with(project) {
 
         val deps = (sequenceOf(dependency) + moreDependencies)
-            .map {
-                when (it) {
-                    is Provider<*> -> it.get()
-                    is ProviderConvertible<*> -> it.asProvider().get()
-                    else -> it
-                }
-            }
+            .map { it.asDependency() }
             .map(project.dependencies::create)
             .toSortedSet(compareBy { it.discriminatorPart })
 
         val disambiguator = computeDisambiguator(deps)
-        val discriminator = "imported-$disambiguator"
-        val jarElements: LibraryElements = objects.named("$JAR+$discriminator")
-        val classesElements: LibraryElements = objects.named("$CLASSES+$discriminator")
-        val resourcesElements: LibraryElements = objects.named("$RESOURCES+$discriminator")
+        val elementsDiscriminator = "imported-$disambiguator"
+        val baseName = "import${disambiguator.camelCase}Classes"
 
-        fun Configuration.configureAttrs() = attributes {
-            attribute(USAGE_ATTRIBUTE, objects.named(JAVA_RUNTIME))
-            attribute(CATEGORY_ATTRIBUTE, objects.named(LIBRARY))
-            attribute(LIBRARY_ELEMENTS_ATTRIBUTE, objects.named(JAR))
-        }
+        val jarElements: LibraryElements = objects.named("$JAR+$elementsDiscriminator")
+        val classesElements: LibraryElements = objects.named("$CLASSES+$elementsDiscriminator")
+        val resourcesElements: LibraryElements = objects.named("$RESOURCES+$elementsDiscriminator")
 
-        val config = configurations.maybeCreate(discriminator).apply {
+        fun createConfiguration(name: String) = configurations.maybeCreate(name).apply {
             isCanBeResolved = true
             isCanBeConsumed = false
-            isVisible = false
-            configureAttrs()
-            dependencies.addAll(deps)
+            attributes {
+                attribute(USAGE_ATTRIBUTE, objects.named(JAVA_RUNTIME))
+                attribute(CATEGORY_ATTRIBUTE, objects.named(LIBRARY))
+                attribute(LIBRARY_ELEMENTS_ATTRIBUTE, objects.named(JAR))
+            }
         }
 
-        val spec = objects.newInstance<ImportClassesSpecImpl>().apply {
+        val importConfig = createConfiguration(baseName).apply { dependencies.addAll(deps) }
+        val librariesConfig = createConfiguration("${baseName}Libraries")
 
-            keepsAndRenames
-                .finalizeValueOnRead()
+        val spec = objects
+            .newInstance<ImportClassesSpecImpl>(disambiguator, elementsDiscriminator, importConfig, librariesConfig)
+            .apply {
 
-            repackageTo
-                .finalizeValueOnRead()
+                keepsAndRenames
+                    .finalizeValueOnRead()
 
-            filters
-                .finalizeValueOnRead()
+                repackageTo
+                    .finalizeValueOnRead()
 
-            extraOptions
-                .apply {
-                    if (!logger.isDebugEnabled) addAll(
-                        DONT_NOTE_OPTION,
-                        if (logger.isInfoEnabled) IGNORE_WARNINGS_OPTION else DONT_WARN_OPTION
-                    )
-                }
-                .finalizeValueOnRead()
+                filters
+                    .finalizeValueOnRead()
 
-            libraries
-                .finalizeValueOnRead()
+                extraOptions
+                    .apply {
+                        if (!logger.isDebugEnabled) addAll(
+                            DONT_NOTE_OPTION,
+                            if (logger.isInfoEnabled) IGNORE_WARNINGS_OPTION else DONT_WARN_OPTION
+                        )
+                    }
+                    .finalizeValueOnRead()
 
-            // excludes by default all known resources related to the module build process
-            exclude(
-                "META-INF/LICENSE.txt",
-                "META-INF/MANIFEST.MF",
-                "META-INF/*.kotlin_module",
-                "META-INF/*.SF",
-                "META-INF/*.DSA",
-                "META-INF/*.RSA",
-                "META-INF/maven/**",
-                "META-INF/versions/*/module-info.class"
-            )
+                libraries
+                    .finalizeValueOnRead()
 
-            configure.execute(this)
+                // excludes by default all known resources related to the module build process
+                exclude(
+                    "META-INF/LICENSE.txt",
+                    "META-INF/MANIFEST.MF",
+                    "META-INF/*.kotlin_module",
+                    "META-INF/*.SF",
+                    "META-INF/*.DSA",
+                    "META-INF/*.RSA",
+                    "META-INF/maven/**",
+                    "META-INF/versions/*/module-info.class"
+                )
 
-            check(keepsAndRenames.get().isNotEmpty()) { "Must call `keep(<classname>)` at least once" }
-        }
+                configure.execute(this)
+
+                check(keepsAndRenames.get().isNotEmpty()) { "Must call `keep(<classname>)` at least once" }
+            }
+
+        librariesConfig.dependencies.addAllLater(
+            spec.libraries
+                .map { list -> list.map { project.dependencies.create(it.asDependency()) } })
 
         dependencies.registerTransform(ImportClassesTransform::class) {
-            val libraries = configurations
-                .detachedConfiguration(*spec.libraries.get().map(project.dependencies::create).toTypedArray())
-                .configureAttrs()
-
             from.attribute(LIBRARY_ELEMENTS_ATTRIBUTE, objects.named(JAR))
             to.attribute(LIBRARY_ELEMENTS_ATTRIBUTE, jarElements)
-            parameters.inJARs.from(config)
-            parameters.libraryJARs.from(libraries)
+            parameters.inJARs.from(importConfig)
+            parameters.libraryJARs.from(librariesConfig)
             parameters.keepsAndRenames.value(spec.keepsAndRenames)
             parameters.repackageName.value(spec.repackageTo)
             parameters.filters.value(spec.filters)
@@ -144,7 +140,7 @@ internal abstract class ImportClassesExtensionImpl @Inject constructor(
             parameters.forResources = true
         }
 
-        fun extractedFiles(elements: LibraryElements) = config.incoming
+        fun extractedFiles(elements: LibraryElements) = importConfig.incoming
             .artifactView { attributes.attribute(LIBRARY_ELEMENTS_ATTRIBUTE, elements) }
             .files
 
@@ -159,6 +155,8 @@ internal abstract class ImportClassesExtensionImpl @Inject constructor(
         dependencies.add(sourceSet.compileOnlyConfigurationName, extractedFiles(jarElements))
         (sourceSet.output.classesDirs as ConfigurableFileCollection).from(extractClasses)
         sourceSet.resources.srcDir(extractedFiles(resourcesElements))
+
+        return@with spec
     }
 
     /**
@@ -188,6 +186,15 @@ internal abstract class ImportClassesExtensionImpl @Inject constructor(
             append('-')
             append(dependencies.drop(1).map { it.discriminatorPart }.hashCode().toHexString())
         }
+    }
+
+    private val String.camelCase
+        get() = replace("(^|\\W+)(\\w)?".toRegex()) { it.groupValues[1].uppercase() }
+
+    private fun Any.asDependency() = when (this) {
+        is Provider<*> -> get()
+        is ProviderConvertible<*> -> asProvider().get()
+        else -> this
     }
 
 }
