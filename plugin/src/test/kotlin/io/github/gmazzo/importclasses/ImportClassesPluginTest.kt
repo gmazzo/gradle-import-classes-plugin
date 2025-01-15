@@ -14,6 +14,9 @@ import org.gradle.api.problems.internal.ProblemsProgressEventEmitterHolder
 import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.internal.operations.OperationIdentifier
 import org.gradle.kotlin.dsl.apply
+import org.gradle.kotlin.dsl.configure
+import org.gradle.kotlin.dsl.dependencies
+import org.gradle.kotlin.dsl.get
 import org.gradle.kotlin.dsl.named
 import org.gradle.kotlin.dsl.repositories
 import org.gradle.kotlin.dsl.the
@@ -51,16 +54,20 @@ class ImportClassesPluginTest {
 
         val main = the<SourceSetContainer>().maybeCreate("main")
 
-        val dep = dependencies.create(dependency).apply {
-            (this as ModuleDependency).isTransitive = dependency !is NonTransitive
-        }
-
-        val spec = main.the<ImportClassesExtension>()(dep) {
+        configure<ImportClassesExtension> {
             repackageTo.value("org.test.imported")
             keep(classToKeep)
-            libraries(libraries)
             extraOptions.value(setOf(DONT_NOTE_OPTION, IGNORE_WARNINGS_OPTION))
-        } as ImportClassesSpecImpl
+        }
+
+        dependencies {
+            "importClasses"(dependency).apply {
+                (this as ModuleDependency).isTransitive = dependency !is NonTransitive
+            }
+            libraries.forEach { "importClassesLibraries"(it) }
+        }
+
+        project.getTasksByName("tasks", false) //internally it calls project.evaluate()
 
         val paths = main.output.classesDirs.files
             .mapTo(linkedSetOf()) { it.toRelativeString(projectDir) }
@@ -70,16 +77,16 @@ class ImportClassesPluginTest {
                 "build/classes/java/main",
                 "build/classes/groovy/main".takeIf { plugin == "groovy" },
                 "build/classes/kotlin/main".takeIf { plugin == "kotlin" },
-                "build/imported-classes/${spec.disambiguator}",
+                "build/imported-classes/main",
             ),
             paths,
         )
 
-        val importedClasses = spec.importConfiguration.incoming
+        val importedClasses = configurations["importClasses"].incoming
             .artifactView {
                 attributes.attribute(
                     LIBRARY_ELEMENTS_ATTRIBUTE,
-                    objects.named("$JAR+${spec.elementsDiscriminator}")
+                    objects.named("$JAR+imported-main")
                 )
             }
             .files
@@ -89,7 +96,7 @@ class ImportClassesPluginTest {
     }
 
     fun testCases(): List<Array<out Any?>> =
-        sequenceOf(null, "java", "java-library", "groovy", "kotlin").flatMap { plugin ->
+        sequenceOf("java", "java-library", "groovy", "kotlin").flatMap { plugin ->
             sequenceOf(
                 arrayOf(
                     plugin,

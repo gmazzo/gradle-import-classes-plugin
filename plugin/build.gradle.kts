@@ -13,6 +13,7 @@ version = providers
     .standardOutput.asText.get().trim().removePrefix("v")
 
 java.toolchain.languageVersion.set(JavaLanguageVersion.of(libs.versions.java.get()))
+kotlin.compilerOptions.freeCompilerArgs.add("-Xjvm-default=all")
 samWithReceiver.annotation(HasImplicitReceiver::class.qualifiedName!!)
 
 gradlePlugin {
