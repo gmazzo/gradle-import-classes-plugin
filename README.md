@@ -15,18 +15,26 @@ plugins {
     id("io.github.gmazzo.importclasses") version "<latest>" 
 }
 
+importClasses {
+    repackageTo = "org.test.imported"
+    keep("org.apache.commons.lang3.StringUtils")
+}
+
+dependencies {
+    importClasses("org.apache.commons:commons-lang3:3.14.0")
+}
 ```
-And then use the new `importClasses` DSL on the target `SourceSet` you want the classes to be imported:
+To configure the dependencies to import, a `importClasses` configuration will be created as stated above.
+Also a companion `importClassesLibrary` configuration will be created, which will be mapped to [Proguard's `-libraryjars` option](https://www.guardsquare.com/manual/configuration/usage#libraryjars).
+
+By default, the plugin will bind with the `main` SourceSet, this can be changed by setting the `sourceSet` property:
 ```kotlin
-sourceSets.main {
-    importClasses("org.apache.commons:commons-lang3:3.14.0") {
-        repackageTo = "org.test.imported"
-        keep("org.apache.commons.lang3.StringUtils")
-    }
+importClasses {
+    sourceSet = sourceSets.test
 }
 ```
 
-Then the `main` SourceSet will have the class `org.apache.commons.lang3.StringUtils` from (`org.apache.commons:commons-lang3:3.14.0`) 
+Then the SourceSet will have the class `org.apache.commons.lang3.StringUtils` from (`org.apache.commons:commons-lang3:3.14.0`) 
 imported and repackaged as `org.test.imported.StringUtils`.
 ```java
 package org.test;
@@ -46,3 +54,22 @@ public class Foo {
 > This plugin uses Gradle's [Artifact Transform](https://docs.gradle.org/current/userguide/artifact_transforms.html) 
 > by running [`Proguard`](https://www.guardsquare.com/manual/home) on the target dependency.
 > You can pass any Proguard option to it inside `importClasses`'s configuration block by calling `option(<rule>)`
+
+## Having multiples `importClasses` instances
+You can configure multiple (and isolated) `importClasses` trough the DSL:
+```kotlin
+importClasses {
+    specs {
+        create("another") {
+            sourceSet = sourceSets.main // to consume it in the `main` source set
+            repackageTo = "org.foo.another.imported"
+            keep("org.foo.AnotherClass")
+        }
+    }
+}
+
+dependencies {
+    importClassesAnother("org.foo:foo:1.0.0")
+}
+```
+Same as the default configuration, `importClassesAnother` and `importClassesAnotherLibrary` configurations will be created for the `another` spec.

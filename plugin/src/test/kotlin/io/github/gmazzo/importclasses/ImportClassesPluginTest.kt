@@ -1,6 +1,7 @@
 package io.github.gmazzo.importclasses
 
 import org.gradle.api.Action
+import org.gradle.api.artifacts.ModuleDependency
 import org.gradle.api.attributes.LibraryElements.JAR
 import org.gradle.api.attributes.LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE
 import org.gradle.api.problems.ProblemSpec
@@ -13,6 +14,8 @@ import org.gradle.api.problems.internal.ProblemsProgressEventEmitterHolder
 import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.internal.operations.OperationIdentifier
 import org.gradle.kotlin.dsl.apply
+import org.gradle.kotlin.dsl.configure
+import org.gradle.kotlin.dsl.dependencies
 import org.gradle.kotlin.dsl.get
 import org.gradle.kotlin.dsl.named
 import org.gradle.kotlin.dsl.repositories
@@ -32,15 +35,12 @@ class ImportClassesPluginTest {
     @ParameterizedTest
     fun `plugin can be applied, and classes are resolved`(
         plugin: String?,
-        dependency: String,
+        dependency: CharSequence,
         classToKeep: String,
         expectedImportedJar: String,
         libraries: Set<String>,
     ): Unit = with(ProjectBuilder.builder().build()) {
         gradleIssue31862Workaround()
-
-        val disambiguator = dependency.split(':').take(2).joinToString("-")
-        val discriminator = "imported-$disambiguator"
 
         apply(plugin = "io.github.gmazzo.importclasses")
         if (plugin != null) {
@@ -54,12 +54,20 @@ class ImportClassesPluginTest {
 
         val main = the<SourceSetContainer>().maybeCreate("main")
 
-        main.the<ImportClassesExtension>()(dependency) {
+        configure<ImportClassesExtension> {
             repackageTo.value("org.test.imported")
             keep(classToKeep)
-            libraries(libraries)
             extraOptions.value(setOf(DONT_NOTE_OPTION, IGNORE_WARNINGS_OPTION))
         }
+
+        dependencies {
+            "importClasses"(dependency).apply {
+                (this as ModuleDependency).isTransitive = dependency !is NonTransitive
+            }
+            libraries.forEach { "importClassesLibraries"(it) }
+        }
+
+        project.getTasksByName("tasks", false) //internally it calls project.evaluate()
 
         val paths = main.output.classesDirs.files
             .mapTo(linkedSetOf()) { it.toRelativeString(projectDir) }
@@ -69,13 +77,18 @@ class ImportClassesPluginTest {
                 "build/classes/java/main",
                 "build/classes/groovy/main".takeIf { plugin == "groovy" },
                 "build/classes/kotlin/main".takeIf { plugin == "kotlin" },
-                "build/imported-classes/$disambiguator",
+                "build/imported-classes/main",
             ),
             paths,
         )
 
-        val importedClasses = configurations[discriminator].incoming
-            .artifactView { attributes.attribute(LIBRARY_ELEMENTS_ATTRIBUTE, objects.named("$JAR+$discriminator")) }
+        val importedClasses = configurations["importClasses"].incoming
+            .artifactView {
+                attributes.attribute(
+                    LIBRARY_ELEMENTS_ATTRIBUTE,
+                    objects.named("$JAR+imported-main")
+                )
+            }
             .files
             .mapTo(linkedSetOf()) { it.name }
 
@@ -83,7 +96,7 @@ class ImportClassesPluginTest {
     }
 
     fun testCases(): List<Array<out Any?>> =
-        sequenceOf(null, "java", "java-library", "groovy", "kotlin").flatMap { plugin ->
+        sequenceOf("java", "java-library", "groovy", "kotlin").flatMap { plugin ->
             sequenceOf(
                 arrayOf(
                     plugin,
@@ -99,8 +112,20 @@ class ImportClassesPluginTest {
                     "org.eclipse.jgit-6.10.0.202406032230-r-imported.jar",
                     setOf("org.slf4j:slf4j-api:2.0.16"),
                 ),
+                arrayOf(
+                    plugin,
+                    NonTransitive("com.android.tools.build:gradle:8.7.3"),
+                    "com.android.build.gradle.internal.dependency.AarToClassTransform",
+                    "gradle-8.7.3-imported.jar",
+                    emptySet<String>(),
+                ),
             )
         }.toList()
+
+    @JvmInline
+    private value class NonTransitive(val dependency: String) : CharSequence by dependency {
+        override fun toString() = dependency
+    }
 
     // TODO workaround for https://github.com/gradle/gradle/issues/31862
     private fun gradleIssue31862Workaround() = ProblemsProgressEventEmitterHolder.init(object : InternalProblems {
