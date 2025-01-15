@@ -6,6 +6,7 @@ import org.gradle.api.provider.MapProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.provider.SetProperty
 import org.gradle.api.tasks.SourceSet
+import org.gradle.jvm.toolchain.JavaLanguageVersion
 
 @JvmDefaultWithoutCompatibility
 interface ImportClassesSpec : Named {
@@ -107,5 +108,12 @@ interface ImportClassesSpec : Named {
     fun option(vararg option: String) = apply {
         extraOptions.addAll(*option)
     }
+
+    /**
+     * If set, a [org.gradle.jvm.toolchain.JavaToolchainSpec] runtime will be appended to `-libraryjars`.
+     *
+     * Defaults to `java.toolchain.languageVersion`.
+     */
+    val javaRuntimeLanguageVersion: Property<JavaLanguageVersion>
 
 }

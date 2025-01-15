@@ -14,16 +14,21 @@ import org.gradle.api.attributes.Usage.JAVA_RUNTIME
 import org.gradle.api.attributes.Usage.USAGE_ATTRIBUTE
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.DuplicatesStrategy
+import org.gradle.api.plugins.JavaPluginExtension
 import org.gradle.api.tasks.SourceSet.MAIN_SOURCE_SET_NAME
 import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.api.tasks.Sync
+import org.gradle.jvm.toolchain.JavaToolchainService
 import org.gradle.kotlin.dsl.create
 import org.gradle.kotlin.dsl.findByType
 import org.gradle.kotlin.dsl.named
 import org.gradle.kotlin.dsl.register
 import org.gradle.kotlin.dsl.registerTransform
+import javax.inject.Inject
 
-class ImportClassesPlugin : Plugin<Project> {
+class ImportClassesPlugin @Inject constructor(
+    private val javaToolchains: JavaToolchainService,
+) : Plugin<Project> {
 
     override fun apply(target: Project): Unit = with(target) {
 
@@ -70,6 +75,11 @@ class ImportClassesPlugin : Plugin<Project> {
             extraOptions
                 .finalizeValueOnRead()
 
+            javaRuntimeLanguageVersion
+                .convention(provider { extensions.findByType<JavaPluginExtension>() }
+                    .flatMap { it.toolchain.languageVersion })
+                .finalizeValueOnRead()
+
             // excludes by default all known resources related to the module build process
             exclude(
                 "META-INF/LICENSE.txt",
@@ -83,7 +93,13 @@ class ImportClassesPlugin : Plugin<Project> {
             )
 
             val importsConfig = createConfiguration("importClasses$suffix")
+
             val librariesConfig = createConfiguration("importClasses${suffix}Libraries")
+            librariesConfig.dependencies.addLater(javaRuntimeLanguageVersion
+                .flatMap { javaToolchains.launcherFor { languageVersion.set(it) } }
+                .map { it.metadata.installationPath }
+                .map { fileTree(it).include("**/*.jar", "**/*.jmod") }
+                .map(dependencies::create))
 
             val elementsDiscriminator = "imported-${disambiguator}"
             val jarElements: LibraryElements = objects.named("$JAR+$elementsDiscriminator")
