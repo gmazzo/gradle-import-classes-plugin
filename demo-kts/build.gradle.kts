@@ -7,16 +7,15 @@ plugins {
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(libs.versions.java.get())
 
-sourceSets.main {
-    importClasses(libs.demo.commons.lang3) {
-        repackageTo = "io.github.gmazzo.importclasses.demo.imported"
-        keep("org.apache.commons.lang3.StringUtils")
-
-        include("**.class")
-    }
+importClasses {
+    repackageTo = "io.github.gmazzo.importclasses.demo.imported"
+    keep("org.apache.commons.lang3.StringUtils")
+    include("**.class")
 }
 
 dependencies {
+    importClasses(libs.demo.commons.lang3)
+
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.params)
 }

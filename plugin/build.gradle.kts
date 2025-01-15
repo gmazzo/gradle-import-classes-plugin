@@ -1,4 +1,5 @@
 plugins {
+    alias(libs.plugins.buildConfig)
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.kotlin.samReceiver)
     alias(libs.plugins.gradle.pluginPublish)
@@ -13,6 +14,7 @@ version = providers
     .standardOutput.asText.get().trim().removePrefix("v")
 
 java.toolchain.languageVersion.set(JavaLanguageVersion.of(libs.versions.java.get()))
+kotlin.compilerOptions.freeCompilerArgs.add("-Xjvm-default=all")
 samWithReceiver.annotation(HasImplicitReceiver::class.qualifiedName!!)
 
 gradlePlugin {
@@ -30,16 +32,22 @@ gradlePlugin {
     }
 }
 
+buildConfig {
+    packageName = "io.github.gmazzo.importclasses"
+    buildConfigField("PROGUARD_DEFAULT_DEPENDENCY", libs.proguard.map { "${it.group}:${it.name}:${it.version}" })
+}
+
 dependencies {
     fun plugin(plugin: Provider<PluginDependency>) =
         plugin.map { "${it.pluginId}:${it.pluginId}.gradle.plugin:${it.version}" }
 
     compileOnly(gradleKotlinDsl())
+    compileOnly(libs.proguard)
+
     testImplementation(gradleKotlinDsl())
     testImplementation(gradleTestKit())
+    testImplementation(libs.proguard)
     testImplementation(plugin(libs.plugins.kotlin.jvm))
-
-    implementation(libs.proguard)
 }
 
 testing.suites.withType<JvmTestSuite> {

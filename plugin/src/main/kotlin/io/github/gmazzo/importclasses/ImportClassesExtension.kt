@@ -1,9 +1,15 @@
 package io.github.gmazzo.importclasses
 
-import org.gradle.api.Action
+import org.gradle.api.NamedDomainObjectContainer
+import org.gradle.api.provider.ListProperty
+import org.gradle.api.provider.Property
 
-interface ImportClassesExtension {
+interface ImportClassesExtension : ImportClassesSpec {
 
-    operator fun invoke(dependency: Any, vararg moreDependencies: Any, configure: Action<ImportClassesSpec>)
+    val proguardMainClass : Property<String>
+
+    val proguardJvmArgs : ListProperty<String>
+
+    val specs: NamedDomainObjectContainer<ImportClassesSpec>
 
 }
