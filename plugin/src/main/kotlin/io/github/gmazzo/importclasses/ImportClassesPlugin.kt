@@ -3,6 +3,8 @@ package io.github.gmazzo.importclasses
 import io.github.gmazzo.importclasses.BuildConfig.PROGUARD_DEFAULT_DEPENDENCY
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import org.gradle.api.artifacts.component.ComponentIdentifier
+import org.gradle.api.artifacts.component.ModuleComponentIdentifier
 import org.gradle.api.attributes.Category.CATEGORY_ATTRIBUTE
 import org.gradle.api.attributes.Category.LIBRARY
 import org.gradle.api.attributes.LibraryElements
@@ -15,9 +17,11 @@ import org.gradle.api.attributes.Usage.USAGE_ATTRIBUTE
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.DuplicatesStrategy
 import org.gradle.api.plugins.JavaPluginExtension
+import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.SourceSet.MAIN_SOURCE_SET_NAME
 import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.api.tasks.Sync
+import org.gradle.jvm.toolchain.JavaLanguageVersion
 import org.gradle.jvm.toolchain.JavaToolchainService
 import org.gradle.kotlin.dsl.create
 import org.gradle.kotlin.dsl.findByType
@@ -95,16 +99,20 @@ class ImportClassesPlugin @Inject constructor(
             val importsConfig = createConfiguration("importClasses$suffix")
 
             val librariesConfig = createConfiguration("importClasses${suffix}Libraries")
-            librariesConfig.dependencies.addLater(javaRuntimeLanguageVersion
-                .flatMap { javaToolchains.launcherFor { languageVersion.set(it) } }
-                .map { it.metadata.installationPath }
-                .map { fileTree(it).include("**/*.jar", "**/*.jmod") }
-                .map(dependencies::create))
+            librariesConfig.dependencies.addLater(jdkToolchain(javaRuntimeLanguageVersion))
 
             val elementsDiscriminator = "imported-${disambiguator}"
             val jarElements: LibraryElements = objects.named("$JAR+$elementsDiscriminator")
             val classesElements: LibraryElements = objects.named("$CLASSES+$elementsDiscriminator")
             val resourcesElements: LibraryElements = objects.named("$RESOURCES+$elementsDiscriminator")
+
+            val librariesModuleIds by lazy {
+                librariesConfig.incoming.artifacts.mapTo(mutableSetOf()) { it.id.componentIdentifier.comparableId }
+            }
+
+            val importJars = importsConfig.incoming
+                .artifactView { componentFilter { it.comparableId !in librariesModuleIds } }
+                .files
 
             dependencies.registerTransform(ImportClassesTransform::class) {
                 from.attribute(LIBRARY_ELEMENTS_ATTRIBUTE, objects.named(JAR))
@@ -113,7 +121,7 @@ class ImportClassesPlugin @Inject constructor(
                 parameters.proguardClasspath.from(proguardConfig)
                 parameters.proguardMainClass.value(extension.proguardMainClass)
                 parameters.proguardJvmArgs.value(extension.proguardJvmArgs)
-                parameters.importClasspath.from(importsConfig)
+                parameters.importClasspath.from(importJars)
                 parameters.librariesClasspath.from(librariesConfig)
                 parameters.keepsAndRenames.value(keepsAndRenames.map {
                     check(it.isNotEmpty()) { "Must call `keep(<classname>)` at least once" }; it
@@ -166,6 +174,18 @@ class ImportClassesPlugin @Inject constructor(
             attribute(LIBRARY_ELEMENTS_ATTRIBUTE, objects.named(JAR))
         }
     }
+
+    private fun Project.jdkToolchain(version: Provider<JavaLanguageVersion>) = version
+        .flatMap { javaToolchains.launcherFor { languageVersion.set(it) } }
+        .map { it.metadata.installationPath }
+        .map { fileTree(it).include("**/*.jar", "**/*.jmod") }
+        .map(dependencies::create)
+
+    private val ComponentIdentifier.comparableId
+        get() = when (this) {
+            is ModuleComponentIdentifier -> moduleIdentifier
+            else -> this
+        }
 
     companion object {
         const val EXTENSION_NAME = "importClasses"
