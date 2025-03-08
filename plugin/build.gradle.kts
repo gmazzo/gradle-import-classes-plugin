@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.kotlin.samReceiver)
     alias(libs.plugins.gradle.pluginPublish)
     alias(libs.plugins.publicationsReport)
+    signing
     jacoco
 }
 
@@ -48,6 +49,15 @@ dependencies {
     testImplementation(gradleTestKit())
     testImplementation(libs.proguard)
     testImplementation(plugin(libs.plugins.kotlin.jvm))
+}
+
+signing {
+    val signingKey: String? by project
+    val signingPassword: String? by project
+
+    useInMemoryPgpKeys(signingKey, signingPassword)
+    publishing.publications.configureEach(::sign)
+    tasks.withType<Sign>().configureEach { enabled = signingKey != null }
 }
 
 testing.suites.withType<JvmTestSuite> {
