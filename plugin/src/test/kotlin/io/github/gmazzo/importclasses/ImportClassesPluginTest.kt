@@ -31,7 +31,6 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import proguard.ConfigurationConstants.DONT_NOTE_OPTION
 import proguard.ConfigurationConstants.IGNORE_WARNINGS_OPTION
-import java.lang.RuntimeException
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class ImportClassesPluginTest {

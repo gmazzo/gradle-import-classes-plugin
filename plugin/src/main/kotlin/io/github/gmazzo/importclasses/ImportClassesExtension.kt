@@ -6,9 +6,9 @@ import org.gradle.api.provider.Property
 
 interface ImportClassesExtension : ImportClassesSpec {
 
-    val proguardMainClass : Property<String>
+    val proguardMainClass: Property<String>
 
-    val proguardJvmArgs : ListProperty<String>
+    val proguardJvmArgs: ListProperty<String>
 
     val specs: NamedDomainObjectContainer<ImportClassesSpec>
 

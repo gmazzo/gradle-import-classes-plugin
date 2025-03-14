@@ -1,6 +1,7 @@
 package io.github.gmazzo.importclasses
 
 import io.github.gmazzo.importclasses.BuildConfig.PROGUARD_DEFAULT_DEPENDENCY
+import javax.inject.Inject
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.artifacts.component.ComponentIdentifier
@@ -28,7 +29,6 @@ import org.gradle.kotlin.dsl.findByType
 import org.gradle.kotlin.dsl.named
 import org.gradle.kotlin.dsl.register
 import org.gradle.kotlin.dsl.registerTransform
-import javax.inject.Inject
 
 class ImportClassesPlugin @Inject constructor(
     private val javaToolchains: JavaToolchainService,
