@@ -1,5 +1,7 @@
 package io.github.gmazzo.importclasses
 
+import java.io.FileOutputStream
+import javax.inject.Inject
 import org.gradle.api.artifacts.transform.CacheableTransform
 import org.gradle.api.artifacts.transform.InputArtifact
 import org.gradle.api.artifacts.transform.TransformAction
@@ -40,8 +42,6 @@ import proguard.ConfigurationConstants.PRINT_SEEDS_OPTION
 import proguard.ConfigurationConstants.PRINT_USAGE_OPTION
 import proguard.ConfigurationConstants.REPACKAGE_CLASSES_OPTION
 import proguard.ConfigurationConstants.USE_UNIQUE_CLASS_MEMBER_NAMES_OPTION
-import java.io.FileOutputStream
-import javax.inject.Inject
 
 @CacheableTransform
 abstract class ImportClassesTransform @Inject constructor(

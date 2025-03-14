@@ -6,14 +6,17 @@
 [![Users](https://img.shields.io/badge/users_by-Sourcegraph-purple)](https://sourcegraph.com/search?q=content:io.github.gmazzo.importclasses+-repo:github.com/gmazzo/gradle-import-classes-plugin)
 
 # gradle-import-classes-plugin
+
 A Gradle plugin to import and repackage dependencies [`Proguard`](https://www.guardsquare.com/manual/home) tool.
 
 # Usage
+
 Apply the plugin:
+
 ```kotlin
 plugins {
     java
-    id("io.github.gmazzo.importclasses") version "<latest>" 
+    id("io.github.gmazzo.importclasses") version "<latest>"
 }
 
 importClasses {
@@ -25,18 +28,23 @@ dependencies {
     importClasses("org.apache.commons:commons-lang3:3.14.0")
 }
 ```
+
 To configure the dependencies to import, a `importClasses` configuration will be created as stated above.
-Also a companion `importClassesLibrary` configuration will be created, which will be mapped to [Proguard's `-libraryjars` option](https://www.guardsquare.com/manual/configuration/usage#libraryjars).
+Also a companion `importClassesLibrary` configuration will be created, which will be mapped to [Proguard's
+`-libraryjars` option](https://www.guardsquare.com/manual/configuration/usage#libraryjars).
 
 By default, the plugin will bind with the `main` SourceSet, this can be changed by setting the `sourceSet` property:
+
 ```kotlin
 importClasses {
     sourceSet = sourceSets.test
 }
 ```
 
-Then the SourceSet will have the class `org.apache.commons.lang3.StringUtils` from (`org.apache.commons:commons-lang3:3.14.0`) 
+Then the SourceSet will have the class `org.apache.commons.lang3.StringUtils` from (
+`org.apache.commons:commons-lang3:3.14.0`)
 imported and repackaged as `org.test.imported.StringUtils`.
+
 ```java
 package org.test;
 
@@ -52,12 +60,14 @@ public class Foo {
 ```
 
 > [!NOTE]
-> This plugin uses Gradle's [Artifact Transform](https://docs.gradle.org/current/userguide/artifact_transforms.html) 
+> This plugin uses Gradle's [Artifact Transform](https://docs.gradle.org/current/userguide/artifact_transforms.html)
 > by running [`Proguard`](https://www.guardsquare.com/manual/home) on the target dependency.
 > You can pass any Proguard option to it inside `importClasses`'s configuration block by calling `option(<rule>)`
 
 ## Having multiples `importClasses` instances
+
 You can configure multiple (and isolated) `importClasses` trough the DSL:
+
 ```kotlin
 importClasses {
     specs {
@@ -73,4 +83,6 @@ dependencies {
     importClassesAnother("org.foo:foo:1.0.0")
 }
 ```
-Same as the default configuration, `importClassesAnother` and `importClassesAnotherLibrary` configurations will be created for the `another` spec.
+
+Same as the default configuration, `importClassesAnother` and `importClassesAnotherLibrary` configurations will be
+created for the `another` spec.
