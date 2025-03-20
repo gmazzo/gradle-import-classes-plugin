@@ -60,10 +60,14 @@ class ImportClassesPlugin @Inject constructor(
 
             sourceSet
                 .convention(provider {
+                    @Suppress("KotlinConstantConditions")
                     extensions
                         .findByType<SourceSetContainer>()
                         ?.findByName(MAIN_SOURCE_SET_NAME)
-                        ?: error("sourceSet was not set for $EXTENSION_NAME '$name'")
+                        ?: "sourceSet was not set for $EXTENSION_NAME '$name'. Check https://github.com/gmazzo/gradle-import-classes-plugin#usage for further instructions".let { message ->
+                            if (!isGradleSync) error(message) else logger.warn(message)
+                            return@let null
+                        }
                 })
                 .finalizeValueOnRead()
 
@@ -156,7 +160,7 @@ class ImportClassesPlugin @Inject constructor(
                 }
 
             afterEvaluate {
-                val sourceSet = sourceSet.get()
+                val sourceSet = sourceSet.orNull ?: return@afterEvaluate
 
                 dependencies.add(sourceSet.compileOnlyConfigurationName, extractedFiles(jarElements))
                 (sourceSet.output.classesDirs as ConfigurableFileCollection).from(extractClasses)
@@ -164,6 +168,9 @@ class ImportClassesPlugin @Inject constructor(
             }
         }
     }
+
+    private val isGradleSync
+        get() = System.getProperty("idea.sync.active") == "true"
 
     private fun Project.createConfiguration(name: String) = configurations.create(name) {
         isCanBeResolved = true
