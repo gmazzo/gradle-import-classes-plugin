@@ -4,16 +4,25 @@ package io.github.gmazzo.importclasses
 
 import javax.inject.Inject
 import org.gradle.api.NamedDomainObjectContainer
-import org.gradle.api.model.ObjectFactory
-import org.gradle.api.tasks.SourceSet.MAIN_SOURCE_SET_NAME
-import org.gradle.kotlin.dsl.domainObjectContainer
+import org.gradle.api.Project
+import org.gradle.api.provider.MapProperty
+import org.gradle.api.tasks.SourceSet
 
-internal abstract class ImportClassesExtensionImpl private constructor(
-    override val specs: NamedDomainObjectContainer<ImportClassesSpec>,
+internal abstract class ImportClassesExtensionImpl @Inject constructor(
+    project: Project,
 ) : ImportClassesExtension,
-    ImportClassesSpec by specs.create(MAIN_SOURCE_SET_NAME) {
+    ImportClassesSpecImpl(project) {
 
-    @Inject
-    constructor(objects: ObjectFactory) : this(objects.domainObjectContainer(ImportClassesSpec::class))
+    abstract val specsByTarget: MapProperty<String, List<ImportClassesSpecImpl>>
+
+    override fun getName() = SourceSet.MAIN_SOURCE_SET_NAME
+
+    abstract override val specs: NamedDomainObjectContainer<ImportClassesSpecImpl>
+
+    init {
+        specs.add(this)
+        specsByTarget.putAll(project.provider { specs.groupBy { it.intoSourceSet.get() }})
+        specsByTarget.finalizeValueOnRead()
+    }
 
 }

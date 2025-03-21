@@ -1,5 +1,6 @@
 plugins {
-    alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.android)
+    alias(libs.plugins.kotlin.android)
     id("io.github.gmazzo.importclasses")
     `maven-publish`
     jacoco
@@ -7,33 +8,26 @@ plugins {
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(libs.versions.java.get())
 
+android {
+    compileSdk = 35
+    namespace = "io.github.gmazzo.importclasses.android"
+}
+
 importClasses {
     dependencies(libs.demo.commons.lang3)
     repackageTo = "io.github.gmazzo.importclasses.demo.imported"
     keep("org.apache.commons.lang3.StringUtils")
     include("**.class")
 
-    specs.create("json") {
-        intoSourceSet = SourceSet.MAIN_SOURCE_SET_NAME
+    specs.create("debug") {
         dependencies(libs.demo.groovy)
-        repackageTo = "io.github.gmazzo.importclasses.demo.imported.json"
+        repackageTo = "io.github.gmazzo.importclasses.demo.imported.debug"
         keep("groovy.json.JsonSlurper")
+        include("**.class")
     }
 }
 
 dependencies {
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.params)
-}
-
-testing.suites.withType<JvmTestSuite> {
-    useJUnitJupiter()
-}
-
-tasks.test {
-    finalizedBy(tasks.jacocoTestReport)
-}
-
-tasks.jacocoTestReport {
-    reports.xml.required = true
 }

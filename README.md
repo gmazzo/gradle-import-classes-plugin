@@ -20,26 +20,21 @@ plugins {
 }
 
 importClasses {
+    dependencies("org.apache.commons:commons-lang3:3.14.0")
     repackageTo = "org.test.imported"
     keep("org.apache.commons.lang3.StringUtils")
 }
+```
 
+You can also use `importClasses` and `importClassesLibrary` configurations in the project's `dependencies` block:.
+```kotlin
 dependencies {
     importClasses("org.apache.commons:commons-lang3:3.14.0")
 }
 ```
 
-To configure the dependencies to import, a `importClasses` configuration will be created as stated above.
-Also a companion `importClassesLibrary` configuration will be created, which will be mapped to [Proguard's
+The companion `importClassesLibrary` will be mapped to [Proguard's
 `-libraryjars` option](https://www.guardsquare.com/manual/configuration/usage#libraryjars).
-
-By default, the plugin will bind with the `main` SourceSet, this can be changed by setting the `sourceSet` property:
-
-```kotlin
-importClasses {
-    sourceSet = sourceSets.test
-}
-```
 
 Then the SourceSet will have the class `org.apache.commons.lang3.StringUtils` from (
 `org.apache.commons:commons-lang3:3.14.0`)
@@ -64,25 +59,23 @@ public class Foo {
 > by running [`Proguard`](https://www.guardsquare.com/manual/home) on the target dependency.
 > You can pass any Proguard option to it inside `importClasses`'s configuration block by calling `option(<rule>)`
 
-## Having multiples `importClasses` instances
 
-You can configure multiple (and isolated) `importClasses` trough the DSL:
+## Binding to SourceSets and Android's Variants
+
+By default, the plugin will bind with the `main` SourceSet, and works with `java` and `android` plugins.
+Further specific imports can be done by creating new specs matching a Java `SourceSet` or an Android `Variant` name
+
+You can configure multiple (and isolated) `importClasses` through the DSL:
 
 ```kotlin
 importClasses {
     specs {
-        create("another") {
-            sourceSet = sourceSets.main // to consume it in the `main` source set
+        create("debug") {  // will be imported onto Android's `debug` source set only
+            dependencies("org.foo:foo:1.0.0")
             repackageTo = "org.foo.another.imported"
             keep("org.foo.AnotherClass")
         }
     }
 }
-
-dependencies {
-    importClassesAnother("org.foo:foo:1.0.0")
-}
 ```
 
-Same as the default configuration, `importClassesAnother` and `importClassesAnotherLibrary` configurations will be
-created for the `another` spec.

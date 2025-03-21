@@ -9,14 +9,13 @@ plugins {
 java.toolchain.languageVersion = JavaLanguageVersion.of(libs.versions.java.get())
 
 importClasses {
+    dependencies(libs.demo.commons.lang3)
     repackageTo = "io.github.gmazzo.importclasses.demo.imported"
     keep("org.apache.commons.lang3.StringUtils")
     include("**.class")
 }
 
 dependencies {
-    importClasses(libs.demo.commons.lang3)
-
     implementation(libs.demo.groovy)
 
     testImplementation(platform(libs.junit.bom))

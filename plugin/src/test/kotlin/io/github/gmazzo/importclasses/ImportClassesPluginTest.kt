@@ -38,7 +38,7 @@ class ImportClassesPluginTest {
     @MethodSource("testCases")
     @ParameterizedTest
     fun `plugin can be applied, and classes are resolved`(
-        plugin: String?,
+        plugin: String,
         dependency: CharSequence,
         classToKeep: String,
         expectedImportedJar: String,
@@ -47,9 +47,7 @@ class ImportClassesPluginTest {
         gradleIssue31862Workaround()
 
         apply(plugin = "io.github.gmazzo.importclasses")
-        if (plugin != null) {
-            apply(plugin = plugin)
-        }
+        apply(plugin = plugin)
 
         repositories {
             mavenCentral()
@@ -81,7 +79,7 @@ class ImportClassesPluginTest {
                 "build/classes/java/main",
                 "build/classes/groovy/main".takeIf { plugin == "groovy" },
                 "build/classes/kotlin/main".takeIf { plugin == "kotlin" },
-                "build/imported-classes/main",
+                "build/imported/main/classes",
             ),
             paths,
         )

@@ -10,6 +10,6 @@ interface ImportClassesExtension : ImportClassesSpec {
 
     val proguardJvmArgs: ListProperty<String>
 
-    val specs: NamedDomainObjectContainer<ImportClassesSpec>
+    val specs: NamedDomainObjectContainer<out ImportClassesSpec>
 
 }

@@ -1,43 +1,52 @@
 package io.github.gmazzo.importclasses
 
+import com.android.build.api.artifact.ScopedArtifact
+import com.android.build.api.variant.AndroidComponentsExtension
+import com.android.build.api.variant.Component
+import com.android.build.api.variant.ScopedArtifacts
 import io.github.gmazzo.importclasses.BuildConfig.PROGUARD_DEFAULT_DEPENDENCY
 import javax.inject.Inject
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.artifacts.component.ComponentIdentifier
 import org.gradle.api.artifacts.component.ModuleComponentIdentifier
+import org.gradle.api.artifacts.dsl.DependencyHandler
 import org.gradle.api.attributes.Category.CATEGORY_ATTRIBUTE
 import org.gradle.api.attributes.Category.LIBRARY
 import org.gradle.api.attributes.LibraryElements
-import org.gradle.api.attributes.LibraryElements.CLASSES
 import org.gradle.api.attributes.LibraryElements.JAR
 import org.gradle.api.attributes.LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE
-import org.gradle.api.attributes.LibraryElements.RESOURCES
 import org.gradle.api.attributes.Usage.JAVA_RUNTIME
 import org.gradle.api.attributes.Usage.USAGE_ATTRIBUTE
 import org.gradle.api.file.ConfigurableFileCollection
-import org.gradle.api.file.DuplicatesStrategy
 import org.gradle.api.plugins.JavaPluginExtension
 import org.gradle.api.provider.Provider
-import org.gradle.api.tasks.SourceSet.MAIN_SOURCE_SET_NAME
+import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.SourceSetContainer
-import org.gradle.api.tasks.Sync
+import org.gradle.api.tasks.TaskProvider
 import org.gradle.jvm.toolchain.JavaLanguageVersion
 import org.gradle.jvm.toolchain.JavaToolchainService
 import org.gradle.kotlin.dsl.create
 import org.gradle.kotlin.dsl.findByType
+import org.gradle.kotlin.dsl.getValue
 import org.gradle.kotlin.dsl.named
+import org.gradle.kotlin.dsl.provideDelegate
 import org.gradle.kotlin.dsl.register
 import org.gradle.kotlin.dsl.registerTransform
+import org.gradle.kotlin.dsl.the
 
 class ImportClassesPlugin @Inject constructor(
     private val javaToolchains: JavaToolchainService,
 ) : Plugin<Project> {
 
-    override fun apply(target: Project): Unit = with(target) {
+    override fun apply(project: Project): Unit = with(project) {
 
         val extension =
-            extensions.create(ImportClassesExtension::class, EXTENSION_NAME, ImportClassesExtensionImpl::class)
+            extensions.create(
+                ImportClassesExtension::class,
+                EXTENSION_NAME,
+                ImportClassesExtensionImpl::class
+            ) as ImportClassesExtensionImpl
 
         val proguardConfig = createConfiguration("importClassesProguard")
             .defaultDependencies { add(dependencies.create(PROGUARD_DEFAULT_DEPENDENCY)) }
@@ -51,24 +60,15 @@ class ImportClassesPlugin @Inject constructor(
 
         extension.specs.all spec@{
 
-            val disambiguator = this@spec.name
+            disambiguator = this@spec.name
 
             val suffix = when (disambiguator) {
-                MAIN_SOURCE_SET_NAME -> ""
+                SourceSet.MAIN_SOURCE_SET_NAME -> ""
                 else -> disambiguator.replaceFirstChar { it.uppercase() }
             }
 
-            sourceSet
-                .convention(provider {
-                    @Suppress("KotlinConstantConditions")
-                    extensions
-                        .findByType<SourceSetContainer>()
-                        ?.findByName(MAIN_SOURCE_SET_NAME)
-                        ?: "sourceSet was not set for $EXTENSION_NAME '$name'. Check https://github.com/gmazzo/gradle-import-classes-plugin#usage for further instructions".let { message ->
-                            if (!isGradleSync) error(message) else logger.warn(message)
-                            return@let null
-                        }
-                })
+            intoSourceSet
+                .convention(name)
                 .finalizeValueOnRead()
 
             keepsAndRenames
@@ -100,15 +100,12 @@ class ImportClassesPlugin @Inject constructor(
                 "META-INF/versions/*/module-info.class"
             )
 
-            val importsConfig = createConfiguration("importClasses$suffix")
-
-            val librariesConfig = createConfiguration("importClasses${suffix}Libraries")
+            importsConfig = createConfiguration("importClasses$suffix")
+            librariesConfig = createConfiguration("importClasses${suffix}Libraries")
             librariesConfig.dependencies.addLater(jdkToolchain(javaRuntimeLanguageVersion))
 
             val elementsDiscriminator = "imported-${disambiguator}"
             val jarElements: LibraryElements = objects.named("$JAR+$elementsDiscriminator")
-            val classesElements: LibraryElements = objects.named("$CLASSES+$elementsDiscriminator")
-            val resourcesElements: LibraryElements = objects.named("$RESOURCES+$elementsDiscriminator")
 
             val librariesModuleIds by lazy {
                 librariesConfig.incoming.artifacts.mapTo(mutableSetOf()) { it.id.componentIdentifier.comparableId }
@@ -135,36 +132,30 @@ class ImportClassesPlugin @Inject constructor(
                 parameters.extraOptions.value(extraOptions)
             }
 
-            dependencies.registerTransform(ExtractJARTransform::class) {
-                from.attributes.attribute(LIBRARY_ELEMENTS_ATTRIBUTE, jarElements)
-                to.attributes.attribute(LIBRARY_ELEMENTS_ATTRIBUTE, classesElements)
-                parameters.forResources = false
-            }
-
-            dependencies.registerTransform(ExtractJARTransform::class) {
-                from.attributes.attribute(LIBRARY_ELEMENTS_ATTRIBUTE, jarElements)
-                to.attributes.attribute(LIBRARY_ELEMENTS_ATTRIBUTE, resourcesElements)
-                parameters.forResources = true
-            }
-
-            fun extractedFiles(elements: LibraryElements) = importsConfig.incoming
-                .artifactView { attributes.attribute(LIBRARY_ELEMENTS_ATTRIBUTE, elements) }
+            extractedJars = importsConfig.incoming
+                .artifactView { attributes.attribute(LIBRARY_ELEMENTS_ATTRIBUTE, jarElements) }
                 .files
 
-            // a task is required when dependencies are generated by tasks of the build, since it's exposed as an outgoing variant artifact
-            val extractClasses =
-                tasks.register<Sync>(importsConfig.name) {
-                    from(extractedFiles(classesElements))
-                    into(layout.buildDirectory.dir("imported-classes/$disambiguator"))
-                    duplicatesStrategy = DuplicatesStrategy.WARN
+        }
+
+        plugins.withId("com.android.base") {
+            with(AndroidSupport) { bindSpecs(extension) }
+        }
+        afterEvaluate {
+            plugins.withId("java") {
+                sourceSets.all ss@{
+                    for (spec in extension.specsByTarget.get()[this@ss.name].orEmpty()) {
+                        bindToSpec(spec, project)
+                    }
                 }
+            }
+            extension.specs.all spec@{
+                if (!bound) {
+                    val errorMsg =
+                        "Target sourceSet was not set for $EXTENSION_NAME '${this@spec.name}'. Check https://github.com/gmazzo/gradle-import-classes-plugin#usage for further instructions"
 
-            afterEvaluate {
-                val sourceSet = sourceSet.orNull ?: return@afterEvaluate
-
-                dependencies.add(sourceSet.compileOnlyConfigurationName, extractedFiles(jarElements))
-                (sourceSet.output.classesDirs as ConfigurableFileCollection).from(extractClasses)
-                sourceSet.resources.srcDir(extractedFiles(resourcesElements))
+                    if (isGradleSync) logger.warn(errorMsg) else error(errorMsg)
+                }
             }
         }
     }
@@ -194,8 +185,62 @@ class ImportClassesPlugin @Inject constructor(
             else -> this
         }
 
+    private fun SourceSet.bindToSpec(spec: ImportClassesSpecImpl, project: Project) {
+        spec.bound = true
+
+        val extractTask = project.tasks.register<ImportClassesTask>(spec.importsConfig.name) {
+            sources.from(spec.extractedJars)
+            extractedClassesDir.set(project.layout.buildDirectory.dir("imported/${spec.disambiguator}/classes"))
+            extractedResourcesDir.set(project.layout.buildDirectory.dir("imported/${spec.disambiguator}/resources"))
+        }
+
+        project.dependencies.add(compileOnlyConfigurationName, spec.extractedJars)
+        (output.classesDirs as ConfigurableFileCollection).from(extractTask.map { it.extractedClassesDir })
+        resources.srcDir(extractTask.map { it.extractedResourcesDir })
+    }
+
+    private object AndroidSupport {
+
+        fun Project.bindSpecs(extension: ImportClassesExtensionImpl) {
+            val androidComponents: AndroidComponentsExtension<*, *, *> by extensions
+
+            androidComponents.onVariants(androidComponents.selector().all()) { variant ->
+                val suffix = variant.name.replaceFirstChar { it.uppercase() }
+                val importTask = project.tasks.register<ImportClassesTask>("importClassesFor$suffix")
+
+                val specs = sequenceOf(extension) + variant.allNames.mapNotNull(extension.specsByTarget.get()::get).flatten().toSet()
+                for (spec in specs) {
+                    variant.bindToSpec(spec, dependencies, importTask)
+                }
+            }
+        }
+
+        private val Component.allNames
+            get() = listOfNotNull(name, buildType, flavorName)
+
+        private fun Component.bindToSpec(
+            spec: ImportClassesSpecImpl,
+            dependencies: DependencyHandler,
+            importTask: TaskProvider<ImportClassesTask>,
+        ) {
+            spec.bound = true
+
+            importTask.configure { sources.from(spec.extractedJars) }
+
+            compileConfiguration.dependencies.add(dependencies.create(spec.extractedJars))
+            artifacts.forScope(ScopedArtifacts.Scope.PROJECT).apply {
+                use(importTask).toAppend(ScopedArtifact.CLASSES, ImportClassesTask::extractedClassesDir)
+                use(importTask).toAppend(ScopedArtifact.JAVA_RES, ImportClassesTask::extractedResourcesDir)
+            }
+        }
+
+    }
+
     companion object {
         const val EXTENSION_NAME = "importClasses"
+
+        private val Project.sourceSets
+            get() = the<SourceSetContainer>()
     }
 
 }

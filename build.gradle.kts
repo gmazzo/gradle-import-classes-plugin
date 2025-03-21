@@ -1,5 +1,8 @@
 plugins {
+    alias(libs.plugins.kotlin.android) apply false
     alias(libs.plugins.kotlin.jvm) apply false
+    alias(libs.plugins.android) apply false
+    id("io.github.gmazzo.importclasses") apply false
     alias(libs.plugins.publicationsReport)
     base
     `maven-publish`
