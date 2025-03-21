@@ -15,7 +15,6 @@ description = "Imports and repackages dependencies using `Proguard` tool"
 version = scmVersion.version
 
 java.toolchain.languageVersion.set(JavaLanguageVersion.of(libs.versions.java.get()))
-kotlin.compilerOptions.freeCompilerArgs.add("-Xjvm-default=all")
 samWithReceiver.annotation(HasImplicitReceiver::class.qualifiedName!!)
 
 val originUrl = providers
@@ -78,6 +77,7 @@ dependencies {
         plugin.map { "${it.pluginId}:${it.pluginId}.gradle.plugin:${it.version}" }
 
     compileOnly(gradleKotlinDsl())
+    compileOnly(plugin(libs.plugins.android))
     compileOnly(libs.proguard)
 
     testImplementation(gradleKotlinDsl())

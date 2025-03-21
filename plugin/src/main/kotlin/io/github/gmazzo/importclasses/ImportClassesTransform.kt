@@ -137,6 +137,17 @@ abstract class ImportClassesTransform @Inject constructor(
             throw ExecException("Proguard failed, check $stdOutFile for details", e)
         }
 
+        // validates all keeps are found
+        val seedsFile = tempDir.resolve("seeds.txt")
+        if (seedsFile.exists()) {
+            val seeds = seedsFile.useLines { lines -> lines.mapTo(mutableSetOf()) { it.replace(":.*$", "") } }
+            val missingSeeds = keepsAndRenames.keySet().get() - seeds
+
+            if (missingSeeds.isNotEmpty()) {
+                error(missingSeeds.joinToString(prefix = "Classes were not found: ", separator = ", "))
+            }
+        }
+
         if (proguardJar.exists()) {
             proguardJar.copyTo(outputs.file(proguardJar.name))
         }
