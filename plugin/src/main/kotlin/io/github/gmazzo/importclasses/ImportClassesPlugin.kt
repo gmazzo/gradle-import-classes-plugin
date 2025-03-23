@@ -28,12 +28,14 @@ import org.gradle.jvm.toolchain.JavaLanguageVersion
 import org.gradle.jvm.toolchain.JavaToolchainService
 import org.gradle.kotlin.dsl.create
 import org.gradle.kotlin.dsl.findByType
+import org.gradle.kotlin.dsl.getByName
 import org.gradle.kotlin.dsl.getValue
 import org.gradle.kotlin.dsl.named
 import org.gradle.kotlin.dsl.provideDelegate
 import org.gradle.kotlin.dsl.register
 import org.gradle.kotlin.dsl.registerTransform
 import org.gradle.kotlin.dsl.the
+import org.jetbrains.annotations.VisibleForTesting
 
 class ImportClassesPlugin @Inject constructor(
     private val javaToolchains: JavaToolchainService,
@@ -149,13 +151,24 @@ class ImportClassesPlugin @Inject constructor(
                     }
                 }
             }
-            extension.specs.all spec@{
-                if (!bound) {
-                    val errorMsg =
-                        "Target sourceSet was not set for $EXTENSION_NAME '${this@spec.name}'. Check https://github.com/gmazzo/gradle-import-classes-plugin#usage for further instructions"
 
-                    if (isGradleSync) logger.warn(errorMsg) else error(errorMsg)
-                }
+            val validateSpecsAreBound: Boolean? by project
+            if (validateSpecsAreBound != false) {
+                validateSpecsAreBound(extension)
+            }
+        }
+    }
+
+    @VisibleForTesting
+    internal fun Project.validateSpecsAreBound(
+        extension: ImportClassesExtensionImpl = extensions.getByName<ImportClassesExtensionImpl>("importClasses"),
+    ) {
+        extension.specs.all spec@{
+            if (!bound) {
+                val errorMsg =
+                    "Target sourceSet was not set for $EXTENSION_NAME '${this@spec.name}'. Check https://github.com/gmazzo/gradle-import-classes-plugin#usage for further instructions"
+
+                if (isGradleSync) logger.warn(errorMsg) else error(errorMsg)
             }
         }
     }

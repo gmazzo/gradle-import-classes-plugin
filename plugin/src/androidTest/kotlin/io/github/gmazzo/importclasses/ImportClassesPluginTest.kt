@@ -1,12 +1,16 @@
 package io.github.gmazzo.importclasses
 
+import com.android.build.gradle.TestedExtension
+import com.android.build.gradle.internal.plugins.BasePlugin
+import org.gradle.api.Project
+import org.gradle.kotlin.dsl.configure
 import org.junit.jupiter.api.TestInstance
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class ImportClassesPluginTest : ImportClassesPluginBaseTest() {
 
    override fun testCases(): List<Array<out Any?>> =
-        sequenceOf("java", "java-library", "groovy", "kotlin").flatMap { plugin ->
+        sequenceOf("com.android.application", "com.android.library").flatMap { plugin ->
             sequenceOf(
                 arrayOf(
                     plugin,
@@ -31,5 +35,15 @@ class ImportClassesPluginTest : ImportClassesPluginBaseTest() {
                 ),
             )
         }.toList()
+
+    override fun Project.onBeforeEvaluate() = configure<TestedExtension> {
+        compileSdkVersion(35)
+        namespace = "org.test"
+    }
+
+    override fun Project.onAfterEvaluate(plugin: String) {
+        (plugins.getPlugin(plugin.replace("(?<=com\\.android\\.)".toRegex(), "internal.")) as BasePlugin<*, *, *, *, *, *, *, *, *, *, *, *>)
+            .createAndroidTasks(this)
+    }
 
 }

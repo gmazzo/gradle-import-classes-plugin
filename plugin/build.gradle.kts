@@ -1,3 +1,5 @@
+@file:Suppress("UnstableApiUsage")
+
 plugins {
     alias(libs.plugins.buildConfig)
     alias(libs.plugins.kotlin.jvm)
@@ -7,7 +9,8 @@ plugins {
     alias(libs.plugins.mavenPublish)
     alias(libs.plugins.gradle.pluginPublish)
     alias(libs.plugins.publicationsReport)
-    jacoco
+    `java-test-fixtures`
+    `jacoco-report-aggregation`
 }
 
 group = "io.github.gmazzo.importclasses"
@@ -72,6 +75,8 @@ buildConfig {
     buildConfigField("PROGUARD_DEFAULT_DEPENDENCY", libs.proguard.map { "${it.group}:${it.name}:${it.version}" })
 }
 
+val androidTest by testing.suites.creating(JvmTestSuite::class)
+
 dependencies {
     fun plugin(plugin: Provider<PluginDependency>) =
         plugin.map { "${it.pluginId}:${it.pluginId}.gradle.plugin:${it.version}" }
@@ -80,22 +85,31 @@ dependencies {
     compileOnly(plugin(libs.plugins.android))
     compileOnly(libs.proguard)
 
-    testImplementation(gradleKotlinDsl())
-    testImplementation(gradleTestKit())
-    testImplementation(libs.proguard)
-    testImplementation(plugin(libs.plugins.kotlin.jvm))
+    testFixturesApi(gradleKotlinDsl())
+    testFixturesApi(gradleTestKit())
+    testFixturesApi(platform(libs.junit.bom))
+    testFixturesApi(libs.junit.params)
+    testFixturesApi(libs.proguard)
+    testFixturesApi(plugin(libs.plugins.kotlin.jvm))
+
+    "androidTestImplementation"(testFixtures(project))
+    "androidTestImplementation"(plugin(libs.plugins.android))
 }
 
 testing.suites.withType<JvmTestSuite> {
     useJUnitJupiter()
 }
 
-tasks.test {
-    finalizedBy(tasks.jacocoTestReport)
+tasks.withType<Test>().configureEach {
+    finalizedBy("${name}CodeCoverageReport")
 }
 
-tasks.jacocoTestReport {
+tasks.withType<JacocoReport>().configureEach {
     reports.xml.required = true
+}
+
+tasks.check {
+    dependsOn(testing.suites.withType<JvmTestSuite>())
 }
 
 afterEvaluate {
