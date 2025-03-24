@@ -1,6 +1,6 @@
 [versions]
 java = "17"
-kotlin = "2.1.10"
+kotlin = "2.1.20"
 
 [libraries]
 demo-groovy = { module = "org.codehaus.groovy:groovy-json", version = "3.0.24" }
