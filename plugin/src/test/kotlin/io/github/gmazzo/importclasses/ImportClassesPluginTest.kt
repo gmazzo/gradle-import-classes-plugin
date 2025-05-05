@@ -44,8 +44,6 @@ class ImportClassesPluginTest {
         expectedImportedJar: String,
         libraries: Set<String>,
     ): Unit = with(ProjectBuilder.builder().build()) {
-        gradleIssue31862Workaround()
-
         apply(plugin = "io.github.gmazzo.importclasses")
         apply(plugin = plugin)
 
@@ -128,83 +126,5 @@ class ImportClassesPluginTest {
     private value class NonTransitive(val dependency: String) : CharSequence by dependency {
         override fun toString() = dependency
     }
-
-    // TODO workaround for https://github.com/gradle/gradle/issues/31862
-    private fun gradleIssue31862Workaround() = ProblemsProgressEventEmitterHolder.init(object : InternalProblems {
-
-        override fun getInternalReporter() = object : InternalProblemReporter {
-
-            override fun report(
-                problem: Problem,
-                id: OperationIdentifier
-            ) {
-                TODO("Not yet implemented")
-            }
-
-            override fun internalCreate(action: Action<in InternalProblemSpec>): InternalProblem {
-                TODO("Not yet implemented")
-            }
-
-            override fun create(
-                problemId: ProblemId,
-                action: Action<in ProblemSpec>
-            ): Problem {
-                TODO("Not yet implemented")
-            }
-
-            override fun report(
-                problemId: ProblemId,
-                spec: Action<in ProblemSpec>
-            ) {
-                TODO("Not yet implemented")
-            }
-
-            override fun report(problem: Problem) {
-                TODO("Not yet implemented")
-            }
-
-            override fun report(problems: Collection<Problem?>) {
-                TODO("Not yet implemented")
-            }
-
-            override fun throwing(
-                exception: Throwable,
-                problemId: ProblemId,
-                spec: Action<in ProblemSpec>
-            ): RuntimeException {
-                TODO("Not yet implemented")
-            }
-
-            override fun throwing(
-                exception: Throwable,
-                problem: Problem
-            ): RuntimeException {
-                TODO("Not yet implemented")
-            }
-
-            override fun throwing(
-                exception: Throwable,
-                problems: Collection<Problem?>
-            ): RuntimeException {
-                TODO("Not yet implemented")
-            }
-
-        }
-
-        override fun getAdditionalDataBuilderFactory(): AdditionalDataBuilderFactory {
-            TODO("Not yet implemented")
-        }
-
-        override fun getInstantiator(): Instantiator {
-            TODO("Not yet implemented")
-        }
-
-        override fun getProblemBuilder(): InternalProblemBuilder {
-            TODO("Not yet implemented")
-        }
-
-        override fun getReporter() = getInternalReporter()
-
-    })
 
 }
