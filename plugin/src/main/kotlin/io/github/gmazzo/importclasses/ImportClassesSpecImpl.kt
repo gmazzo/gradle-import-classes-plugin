@@ -6,6 +6,7 @@ import org.gradle.api.artifacts.Configuration
 import org.gradle.api.file.FileCollection
 import org.gradle.api.provider.Provider
 import org.gradle.api.provider.ProviderConvertible
+import org.gradle.plugin.use.PluginDependency
 
 internal abstract class ImportClassesSpecImpl @Inject constructor(
     private val project: Project
@@ -35,10 +36,11 @@ internal abstract class ImportClassesSpecImpl @Inject constructor(
         }
     }
 
-    private val Any.resolved
+    private val Any.resolved: Any
         get() = when (this) {
-            is Provider<*> -> get()
-            is ProviderConvertible<*> -> asProvider().get()
+            is Provider<*> -> get().resolved
+            is ProviderConvertible<*> -> asProvider().get().resolved
+            is PluginDependency -> run { "$pluginId:$pluginId.gradle.plugin:$version" }
             else -> this
         }
 
