@@ -24,6 +24,8 @@ importClasses {
 dependencies {
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.params)
+    testRuntimeOnly(libs.junit.engine)
+    testRuntimeOnly(libs.junit.launcher)
 }
 
 testing.suites.withType<JvmTestSuite> {
