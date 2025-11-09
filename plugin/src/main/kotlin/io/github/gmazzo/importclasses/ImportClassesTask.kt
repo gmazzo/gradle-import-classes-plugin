@@ -17,7 +17,7 @@ import org.gradle.api.tasks.TaskAction
 import org.gradle.work.DisableCachingByDefault
 
 @DisableCachingByDefault(because = "This task is not cacheable")
-abstract class ImportClassesTask @Inject constructor(
+public abstract class ImportClassesTask @Inject constructor(
     private val archiveOperations: ArchiveOperations,
     private val fileSystemOperations: FileSystemOperations,
 ) : DefaultTask() {
@@ -26,16 +26,16 @@ abstract class ImportClassesTask @Inject constructor(
     @get:PathSensitive(PathSensitivity.RELATIVE)
     @get:IgnoreEmptyDirectories
     @get:SkipWhenEmpty
-    abstract val sources: ConfigurableFileCollection
+    public abstract val sources: ConfigurableFileCollection
 
     @get:OutputDirectory
-    abstract val extractedClassesDir: DirectoryProperty
+    public abstract val extractedClassesDir: DirectoryProperty
 
     @get:OutputDirectory
-    abstract val extractedResourcesDir: DirectoryProperty
+    public abstract val extractedResourcesDir: DirectoryProperty
 
     @TaskAction
-    fun copyClasses() {
+    public fun copyClasses() {
         val sourcesContent = sources.asFileTree.map(archiveOperations::zipTree)
 
         fileSystemOperations.sync {

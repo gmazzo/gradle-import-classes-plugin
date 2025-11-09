@@ -35,7 +35,7 @@ import org.gradle.kotlin.dsl.register
 import org.gradle.kotlin.dsl.registerTransform
 import org.gradle.kotlin.dsl.the
 
-class ImportClassesPlugin @Inject constructor(
+public class ImportClassesPlugin @Inject constructor(
     private val javaToolchains: JavaToolchainService,
 ) : Plugin<Project> {
 
@@ -236,8 +236,8 @@ class ImportClassesPlugin @Inject constructor(
 
     }
 
-    companion object {
-        const val EXTENSION_NAME = "importClasses"
+    public companion object {
+        public const val EXTENSION_NAME: String = "importClasses"
 
         private val Project.sourceSets
             get() = the<SourceSetContainer>()
