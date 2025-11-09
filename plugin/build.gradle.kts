@@ -19,7 +19,11 @@ description = "Imports and repackages dependencies using `Proguard` tool"
 
 java.toolchain.languageVersion.set(JavaLanguageVersion.of(libs.versions.java.get()))
 samWithReceiver.annotation(HasImplicitReceiver::class.qualifiedName!!)
-kotlin.abiValidation.enabled = true
+
+kotlin {
+    abiValidation.enabled = true
+    explicitApi()
+}
 
 val originUrl = providers
     .exec { commandLine("git", "remote", "get-url", "origin") }

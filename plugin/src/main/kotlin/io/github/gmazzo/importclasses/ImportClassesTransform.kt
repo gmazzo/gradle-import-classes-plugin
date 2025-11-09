@@ -2,6 +2,7 @@ package io.github.gmazzo.importclasses
 
 import java.io.FileOutputStream
 import javax.inject.Inject
+import org.gradle.api.GradleException
 import org.gradle.api.artifacts.transform.CacheableTransform
 import org.gradle.api.artifacts.transform.InputArtifact
 import org.gradle.api.artifacts.transform.TransformAction
@@ -21,7 +22,6 @@ import org.gradle.api.tasks.Optional
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
 import org.gradle.process.ExecOperations
-import org.gradle.process.internal.ExecException
 import proguard.ConfigurationConstants.ADAPT_CLASS_STRINGS_OPTION
 import proguard.ConfigurationConstants.ADAPT_RESOURCE_FILE_CONTENTS_OPTION
 import proguard.ConfigurationConstants.ADAPT_RESOURCE_FILE_NAMES_OPTION
@@ -44,13 +44,13 @@ import proguard.ConfigurationConstants.REPACKAGE_CLASSES_OPTION
 import proguard.ConfigurationConstants.USE_UNIQUE_CLASS_MEMBER_NAMES_OPTION
 
 @CacheableTransform
-abstract class ImportClassesTransform @Inject constructor(
+public abstract class ImportClassesTransform @Inject constructor(
     private val execOperations: ExecOperations,
 ) : TransformAction<ImportClassesTransform.Params> {
 
     @get:PathSensitive(PathSensitivity.NONE)
     @get:InputArtifact
-    abstract val inputArtifact: Provider<FileSystemLocation>
+    public abstract val inputArtifact: Provider<FileSystemLocation>
 
     override fun transform(outputs: TransformOutputs): Unit = with(parameters) {
         if (inputArtifact.get().asFile != importClasspath.firstOrNull()) {
@@ -134,7 +134,7 @@ abstract class ImportClassesTransform @Inject constructor(
             }.rethrowFailure()
 
         } catch (e: Exception) {
-            throw ExecException("Proguard failed, check $stdOutFile for details", e)
+            throw GradleException("Proguard failed, check $stdOutFile for details", e)
         }
 
         // validates all keeps are found
@@ -153,38 +153,38 @@ abstract class ImportClassesTransform @Inject constructor(
         }
     }
 
-    interface Params : TransformParameters {
+    public interface Params : TransformParameters {
 
         @get:Internal
-        val workDirectory: DirectoryProperty
+        public val workDirectory: DirectoryProperty
 
         @get:Classpath
-        val proguardClasspath: ConfigurableFileCollection
+        public val proguardClasspath: ConfigurableFileCollection
 
         @get:Input
-        val proguardMainClass: Property<String>
+        public val proguardMainClass: Property<String>
 
         @get:Input
-        val proguardJvmArgs: ListProperty<String>
+        public val proguardJvmArgs: ListProperty<String>
 
         @get:Classpath
-        val importClasspath: ConfigurableFileCollection
+        public val importClasspath: ConfigurableFileCollection
 
         @get:Classpath
-        val librariesClasspath: ConfigurableFileCollection
+        public val librariesClasspath: ConfigurableFileCollection
 
         @get:Input
-        val keepsAndRenames: MapProperty<String, String>
+        public val keepsAndRenames: MapProperty<String, String>
 
         @get:Input
         @get:Optional
-        val repackageName: Property<String>
+        public val repackageName: Property<String>
 
         @get:Input
-        val filters: ListProperty<String>
+        public val filters: ListProperty<String>
 
         @get:Input
-        val extraOptions: ListProperty<String>
+        public val extraOptions: ListProperty<String>
 
     }
 

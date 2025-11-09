@@ -4,12 +4,12 @@ import org.gradle.api.NamedDomainObjectContainer
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Property
 
-interface ImportClassesExtension : ImportClassesSpec {
+public interface ImportClassesExtension : ImportClassesSpec {
 
-    val proguardMainClass: Property<String>
+    public val proguardMainClass: Property<String>
 
-    val proguardJvmArgs: ListProperty<String>
+    public val proguardJvmArgs: ListProperty<String>
 
-    val specs: NamedDomainObjectContainer<out ImportClassesSpec>
+    public val specs: NamedDomainObjectContainer<out ImportClassesSpec>
 
 }
