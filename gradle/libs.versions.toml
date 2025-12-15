@@ -12,7 +12,7 @@ junit-launcher = { module = "org.junit.platform:junit-platform-launcher" }
 proguard = { module = "com.guardsquare:proguard-base", version = "7.8.2" }
 
 [plugins]
-android = { id = "com.android.application", version = "8.13.1" }
+android = { id = "com.android.application", version = "8.13.2" }
 buildConfig = { id = "com.github.gmazzo.buildconfig", version = "6.0.6" }
 dokka = { id = "org.jetbrains.dokka-javadoc", version = "2.1.0" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
