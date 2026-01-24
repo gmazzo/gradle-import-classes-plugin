@@ -1,6 +1,5 @@
 plugins {
     alias(libs.plugins.android)
-    alias(libs.plugins.kotlin.android)
     id("io.github.gmazzo.importclasses")
     `maven-publish`
     jacoco
