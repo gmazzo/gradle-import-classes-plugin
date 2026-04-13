@@ -9,7 +9,7 @@ junit-bom = { module = "org.junit:junit-bom", version = "6.0.3" }
 junit-params = { module = "org.junit.jupiter:junit-jupiter-params" }
 junit-engine = { module = "org.junit.jupiter:junit-jupiter-engine" }
 junit-launcher = { module = "org.junit.platform:junit-platform-launcher" }
-proguard = { module = "com.guardsquare:proguard-base", version = "7.9.0" }
+proguard = { module = "com.guardsquare:proguard-base", version = "7.9.1" }
 
 [plugins]
 android = { id = "com.android.application", version = "9.1.0" }
