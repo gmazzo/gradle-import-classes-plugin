@@ -13,7 +13,7 @@ proguard = { module = "com.guardsquare:proguard-base", version = "7.9.1" }
 
 [plugins]
 android = { id = "com.android.application", version = "9.2.1" }
-buildConfig = { id = "com.github.gmazzo.buildconfig", version = "6.0.9" }
+buildConfig = { id = "com.github.gmazzo.buildconfig", version = "6.0.10" }
 dokka = { id = "org.jetbrains.dokka-javadoc", version = "2.2.0" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-samReceiver = { id = "org.jetbrains.kotlin.plugin.sam.with.receiver", version.ref = "kotlin" }
