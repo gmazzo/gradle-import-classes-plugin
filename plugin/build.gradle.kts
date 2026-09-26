@@ -1,5 +1,6 @@
 @file:OptIn(ExperimentalAbiValidation::class)
 
+import org.gradle.plugin.compatibility.compatibility
 import org.jetbrains.kotlin.gradle.dsl.abi.ExperimentalAbiValidation
 
 plugins {
@@ -39,6 +40,12 @@ gradlePlugin {
             displayName = name
             implementationClass = "io.github.gmazzo.importclasses.ImportClassesPlugin"
             description = project.description
+            compatibility {
+                features {
+                    configurationCache = true
+                    isolatedProjects = true
+                }
+            }
             tags.addAll("jarjar", "proguard", "dependencies", "repackage", "import", "classes")
         }
     }
