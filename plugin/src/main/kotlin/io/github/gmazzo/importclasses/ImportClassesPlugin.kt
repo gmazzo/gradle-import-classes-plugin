@@ -28,6 +28,7 @@ import org.gradle.jvm.toolchain.JavaLanguageVersion
 import org.gradle.jvm.toolchain.JavaToolchainService
 import org.gradle.kotlin.dsl.create
 import org.gradle.kotlin.dsl.findByType
+import org.gradle.kotlin.dsl.getByName
 import org.gradle.kotlin.dsl.getValue
 import org.gradle.kotlin.dsl.named
 import org.gradle.kotlin.dsl.provideDelegate
@@ -202,7 +203,7 @@ public class ImportClassesPlugin @Inject constructor(
     private object AndroidSupport {
 
         fun Project.bindSpecs(extension: ImportClassesExtensionImpl) {
-            val androidComponents: AndroidComponentsExtension<*, *, *> by extensions
+            val androidComponents = extensions.getByName<AndroidComponentsExtension<*, *, *>>("androidComponents")
 
             androidComponents.onVariants(androidComponents.selector().all()) { variant ->
                 val suffix = variant.name.replaceFirstChar { it.uppercase() }
